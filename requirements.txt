@@ -1,4 +1,4 @@
-tqdm
-torch
-numpy
 matplotlib
+numpy
+torch
+tqdm
