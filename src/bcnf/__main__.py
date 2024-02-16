@@ -2,7 +2,7 @@ import argparse
 import sys
 
 from bcnf.debug_plotting import debug_plotting
-from bcnf.physics import physics_simulation
+from bcnf.physics import physics_ODE_simulation, physics_simulation
 
 
 def main(argv: str = None) -> None:
@@ -29,9 +29,10 @@ def main(argv: str = None) -> None:
         case 'demo':
             print(f'Running demo with dummy_option={args.dummy_option}')
         case 'test_physics':
-            print('Running physics simulation')
-            p = physics_simulation(x0=args.x0)
-            debug_plotting(p)
+            print('Running physics simulation; Comparing simple physis with ODE integration...')
+            p1 = physics_simulation(x0=args.x0)
+            p2 = physics_ODE_simulation(x0=args.x0)
+            debug_plotting(p1, p2)
         case _:
             print('Unknown command: ', args.command)
             sys.exit(1)

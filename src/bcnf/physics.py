@@ -1,4 +1,7 @@
 import numpy as np
+from scipy.integrate import odeint
+
+# simple physics simulation
 
 
 def physics_simulation(x0: np.ndarray = np.array([0, 0, 1.8]),                              # initial position
@@ -29,3 +32,50 @@ def physics_simulation(x0: np.ndarray = np.array([0, 0, 1.8]),                  
             break
 
     return position
+
+
+# physics simulation with ODE integration
+
+def ballistic_ODE(v: np.ndarray = np.array([10, 10, 10]),   # velocity
+                  t: np.ndarray = np.zeros((100, 3)),       # time
+                  g: np.ndarray = np.array([0, 0, -9.81]),  # gravitational acceleration
+                  w: np.ndarray = np.array([-1, 2, 0]),     # wind
+                  b: float = 0.1,                           # drag coefficient
+                  m: float = 1.0                            # mass
+                  ) -> np.ndarray:
+    dvdt = g - (b / m) * (v**2 * v / np.linalg.norm(v) + w**2 * w / np.linalg.norm(w))
+    return dvdt
+
+
+def physics_ODE_simulation(x0: np.ndarray = np.array([0, 0, 1.8]),      # initial position
+                           v0: np.ndarray = np.array([10, 10, 10]),     # initial velocity
+                           g: np.ndarray = np.array([0, 0, -9.81]),     # gravitational acceleration
+                           w: np.ndarray = np.array([-10, 2, 0]),        # wind
+                           b: float = 0.1,                              # drag coefficient
+                           m: float = 1.0,                              # mass
+                           T: float = 10.0,                             # total run time in seconds
+                           dt: float = 0.1                              # time step
+                           ) -> np.ndarray:
+    # create time grid
+    t = np.arange(0, T, dt)
+
+    # solve ODE
+    v_sol = odeint(ballistic_ODE, v0, t, args=(g, w, b, m))
+
+    # calculate position
+    x_sol = np.zeros((v_sol.shape[0], 3))
+    x_sol[0] = x0
+
+    for i in range(1, v_sol.shape[0]):
+        x_sol[i] = x_sol[i - 1] + v_sol[i] * dt
+
+        # if the object hits the ground, calculate the point of impact and break the loop
+        if x_sol[i, 2] < 0:
+            t = -x_sol[i - 1, 2] / v_sol[i, 2]
+            x_sol[i] = x_sol[i - 1] + v_sol[i] * t     # point of impact
+
+            x_sol[i:] = x_sol[i]                      # object doesn't move after impact
+            v_sol[i:] = np.zeros(3)                   # object doesn't move after impact
+            break
+
+    return x_sol
