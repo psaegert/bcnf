@@ -2,6 +2,7 @@ import argparse
 import sys
 
 from bcnf.debug_plotting import debug_plotting
+from bcnf.observation import simple_2D_camera_observation
 from bcnf.physics import physics_ODE_simulation, physics_simulation
 
 
@@ -32,6 +33,10 @@ def main(argv: str = None) -> None:
             print('Running physics simulation; Comparing simple physis with ODE integration...')
             p1 = physics_simulation(x0=args.x0)
             p2 = physics_ODE_simulation(x0=args.x0)
+
+            p1 = simple_2D_camera_observation(p1)
+            p2 = simple_2D_camera_observation(p2, noise=True, std=0.05)
+
             debug_plotting(p1, p2)
         case _:
             print('Unknown command: ', args.command)

@@ -10,6 +10,7 @@ def physics_simulation(x0: np.ndarray = np.array([0, 0, 1.8]),                  
                        T: float = 10.0,                                                     # total run time in seconds
                        dt: float = 0.1                                                      # time step
                        ) -> np.ndarray:
+
     num_steps = int(T / dt)
 
     position = np.zeros((num_steps, 3))
@@ -39,28 +40,33 @@ def physics_simulation(x0: np.ndarray = np.array([0, 0, 1.8]),                  
 def ballistic_ODE(v: np.ndarray = np.array([10, 10, 10]),   # velocity
                   t: np.ndarray = np.zeros((100, 3)),       # time
                   g: np.ndarray = np.array([0, 0, -9.81]),  # gravitational acceleration
-                  w: np.ndarray = np.array([-1, 2, 0]),     # wind
+                  w: np.ndarray = np.array([-10, 2.7, 0]),   # wind
                   b: float = 0.1,                           # drag coefficient
-                  m: float = 1.0                            # mass
+                  m: float = 1.0,                           # mass
+                  a: np.ndarray = np.array([0, 0, 0])       # thrust
                   ) -> np.ndarray:
-    dvdt = g - (b / m) * (v**2 * v / np.linalg.norm(v) + w**2 * w / np.linalg.norm(w))
+
+    dvdt = g - (b / m) * (v**2 * v / np.linalg.norm(v) - w**2 * w / np.linalg.norm(w)) + a
+
     return dvdt
 
 
 def physics_ODE_simulation(x0: np.ndarray = np.array([0, 0, 1.8]),      # initial position
                            v0: np.ndarray = np.array([10, 10, 10]),     # initial velocity
                            g: np.ndarray = np.array([0, 0, -9.81]),     # gravitational acceleration
-                           w: np.ndarray = np.array([-10, 2, 0]),        # wind
+                           w: np.ndarray = np.array([-10, 2.7, 0]),      # wind
                            b: float = 0.1,                              # drag coefficient
                            m: float = 1.0,                              # mass
+                           a: np.ndarray = np.array([0, 0, 0]),         # thrust
                            T: float = 10.0,                             # total run time in seconds
                            dt: float = 0.1                              # time step
                            ) -> np.ndarray:
+
     # create time grid
     t = np.arange(0, T, dt)
 
     # solve ODE
-    v_sol = odeint(ballistic_ODE, v0, t, args=(g, w, b, m))
+    v_sol = odeint(ballistic_ODE, v0, t, args=(g, w, b, m, a))
 
     # calculate position
     x_sol = np.zeros((v_sol.shape[0], 3))
