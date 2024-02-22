@@ -85,3 +85,41 @@ def physics_ODE_simulation(x0: np.ndarray = np.array([0, 0, 1.8]),      # initia
             break
 
     return x_sol
+
+
+# calculate point of impact for given parameters
+
+def calculate_point_of_impact(x0: np.ndarray = np.array([0, 0, 1.8]),      # initial position
+                              v0: np.ndarray = np.array([10, 10, 10]),     # initial velocity
+                              g: np.ndarray = np.array([0, 0, -9.81]),     # gravitational acceleration
+                              w: np.ndarray = np.array([-10, 2.7, 0]),      # wind
+                              b: float = 0.1,                              # drag coefficient
+                              m: float = 1.0,                              # mass
+                              a: np.ndarray = np.array([0, 0, 0]),         # thrust
+                              dt: float = 0.1                              # time step
+                              ) -> np.ndarray:
+
+    # initial time
+    t = 0.0
+
+    while True:
+        # solve ODE for one time step
+        v_sol = odeint(ballistic_ODE, v0, [t, t + dt], args=(g, w, b, m, a))
+
+        # calculate position
+        x_sol = x0 + v0 * dt
+
+        # when the object hits the ground, calculate the point of impact and break the loop
+        if x_sol[2] < 0:
+            t = -x0[2] / v0[2]
+            x_sol = x0 + v0 * t  # point of impact
+            break
+
+        # update initial position and velocity
+        x0 = x_sol
+        v0 = v_sol[1]
+
+        # update time
+        t += dt
+
+    return x_sol
