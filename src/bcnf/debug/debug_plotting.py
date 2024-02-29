@@ -40,3 +40,17 @@ def debug_plotting(p: np.ndarray,       # position array
         ax.set_xlim(-50, 50)
 
         plt.show()
+
+
+def show_camera_image(image: np.ndarray) -> None:
+    fig, ax = plt.subplots(figsize=(16, 9))
+
+    phi = 0.6108652381980153
+    theta = 0.3436116964863836
+
+    ax.set_xlabel('horizontal angle')
+    ax.set_ylabel('vertical angle')
+
+    ax.imshow(image, extent=[-phi, phi, -theta, theta], aspect='equal', cmap='hot')
+
+    plt.show()
