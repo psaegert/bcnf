@@ -1,12 +1,24 @@
+from abc import abstractmethod
+
 import numpy as np
 import torch
 import torch.nn as nn
 
-from bcnf.feature_network import FeatureNetwork
+from bcnf.model.feature_network import FeatureNetwork
+
+
+class ConditionalInvertibleLayer(nn.Module):
+    @abstractmethod
+    def forward(self, x: torch.Tensor, y: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
+        pass
+
+    @abstractmethod
+    def inverse(self, z: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        pass
 
 
 class ConditionalNestedNeuralNetwork(nn.Module):
-    def __init__(self, input_size: int, output_size: int, hidden_size: int, n_conditions: int) -> None:
+    def __init__(self, input_size: int, output_size: int, hidden_size: int, n_conditions: int, dropout: float = 0.2) -> None:
         super(ConditionalNestedNeuralNetwork, self).__init__()
 
         self.n_conditions = n_conditions
@@ -14,15 +26,17 @@ class ConditionalNestedNeuralNetwork(nn.Module):
         self.layers = nn.Sequential(
             nn.Linear(input_size + n_conditions, hidden_size),
             nn.GELU(),
-            nn.Dropout(0.2),
+            nn.Dropout(dropout),
             nn.Linear(hidden_size, hidden_size),
             nn.GELU(),
-            nn.Dropout(0.2),
+            nn.Dropout(dropout),
             nn.Linear(hidden_size, output_size * 2)
         )
 
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        x = torch.cat([x, y], dim=1)
+        if self.n_conditions > 0:
+            # Concatenate the input with the condition
+            x = torch.cat([x, y], dim=1)
 
         # Get the translation coefficients t and the scale coefficients s from the neural network
         t, s = self.layers(x).chunk(2, dim=1)
@@ -31,7 +45,7 @@ class ConditionalNestedNeuralNetwork(nn.Module):
         return t, torch.tanh(s)
 
 
-class ConditionalAffineCouplingLayer(nn.Module):
+class ConditionalAffineCouplingLayer(ConditionalInvertibleLayer):
     def __init__(self, input_size: int, hidden_size: int, n_conditions: int) -> None:
         super(ConditionalAffineCouplingLayer, self).__init__()
 
@@ -53,15 +67,15 @@ class ConditionalAffineCouplingLayer(nn.Module):
         t, log_s = self.nn(x_a, y)
 
         # Apply the transformation
-        y_a = x_a  # skip connection
-        y_b = torch.exp(log_s) * x_b + t  # affine transformation
+        z_a = x_a  # skip connection
+        z_b = torch.exp(log_s) * x_b + t  # affine transformation
 
         # Calculate the log determinant of the Jacobian
         if log_det_J:
             self.log_det_J = log_s.sum(dim=1)
 
         # Return the output
-        return torch.cat([y_a, y_b], dim=1)
+        return torch.cat([z_a, z_b], dim=1)
 
     def inverse(self, z: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         # Split the input into two halves
@@ -78,7 +92,7 @@ class ConditionalAffineCouplingLayer(nn.Module):
         return torch.cat([x_a, x_b], dim=1)
 
 
-class OrthonormalTransformation(nn.Module):
+class OrthonormalTransformation(ConditionalInvertibleLayer):
     def __init__(self, input_size: int) -> None:
         super(OrthonormalTransformation, self).__init__()
 
@@ -87,17 +101,17 @@ class OrthonormalTransformation(nn.Module):
         # Create the random orthonormal matrix via QR decomposition
         self.orthonormal_matrix = nn.Parameter(torch.linalg.qr(torch.randn(input_size, input_size))[0], requires_grad=False)
 
-    def forward(self, x: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, y: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
         # Apply the transformation
         return x @ self.orthonormal_matrix
 
-    def inverse(self, y: torch.Tensor) -> torch.Tensor:
+    def inverse(self, z: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         # Apply the inverse transformation
-        return y @ self.orthonormal_matrix.T
+        return z @ self.orthonormal_matrix.T
 
 
-class CondRealNVP(nn.Module):
-    def __init__(self, input_size: int, hidden_size: int, blocks: int, n_conditions: int, feature_network: FeatureNetwork, device: str = "cpu"):
+class CondRealNVP(ConditionalInvertibleLayer):
+    def __init__(self, input_size: int, hidden_size: int, blocks: int, n_conditions: int, feature_network: FeatureNetwork | None, device: str = "cpu"):
         super(CondRealNVP, self).__init__()
 
         if n_conditions == 0 or feature_network is None:
@@ -117,7 +131,7 @@ class CondRealNVP(nn.Module):
 
     def _build_network(self) -> nn.ModuleList:
         # Create the network
-        layers: list[nn.Module] = []
+        layers: list[ConditionalInvertibleLayer] = []
         for _ in range(self.blocks - 1):
             layers.append(ConditionalAffineCouplingLayer(self.input_size, self.hidden_size, self.n_conditions))
             layers.append(OrthonormalTransformation(self.input_size))
@@ -137,21 +151,13 @@ class CondRealNVP(nn.Module):
             self.log_det_J = 0
 
             for layer in self.layers:
-                # If the layer is an affine coupling layer, we need to pass the inverse flag
-                if isinstance(layer, ConditionalAffineCouplingLayer):
-                    x = layer(x, log_det_J, y)
-                else:
-                    x = layer(x, log_det_J)
+                x = layer(x, y, log_det_J)
                 self.log_det_J += layer.log_det_J
 
             return x
 
         for layer in self.layers:
-            # If the layer is an affine coupling layer, we need to pass the inverse flag
-            if isinstance(layer, ConditionalAffineCouplingLayer):
-                x = layer(x, log_det_J, y)
-            else:
-                x = layer(x, log_det_J)
+            x = layer(x, y, log_det_J)
 
         return x
 
@@ -161,11 +167,7 @@ class CondRealNVP(nn.Module):
 
         # Apply the network in reverse
         for layer in reversed(self.layers):
-            # If the layer is an affine coupling layer, we need to pass the inverse flag
-            if isinstance(layer, ConditionalAffineCouplingLayer):
-                z = layer.inverse(z, y)
-            else:
-                z = layer.inverse(z)
+            z = layer.inverse(z, y)
 
         return z
 
