@@ -1,3 +1,5 @@
+import os
+
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,7 +10,7 @@ def record_trajectory(trajectory: np.ndarray = np.array([[0, 0, 0]]),
                       fov_horizontal: float = 70.0,
                       cam_pos: np.ndarray = np.array([-25, 0, 1.5]),
                       make_gif: bool = True,
-                      gif_name: str = 'trajectory'
+                      gif_path: str = 'trajectory.gif'
                       ) -> np.ndarray:
     aspect_ratio = ratio[0] / ratio[1]
 
@@ -33,13 +35,13 @@ def record_trajectory(trajectory: np.ndarray = np.array([[0, 0, 0]]),
         fig, ax = plt.subplots(figsize=(ratio[0], ratio[1]))
         ax.set_xlabel('horizontal angle')
         ax.set_ylabel('vertical angle')
-        ax.title.set_text(f'{gif_name}')
+        ax.title.set_text(f'{os.path.basename(gif_path)}')
         gif = []
         for i in range(trajectory.shape[0]):
             gif.append([ax.imshow(film[i], extent=[-phi, phi, -theta, theta], cmap='hot', animated=True)])
 
         ani = animation.ArtistAnimation(fig, gif, interval=100, blit=True, repeat_delay=3000)
-        ani.save(f'tests/gifs/{gif_name}.gif', writer='imagemagick')
+        ani.save(gif_path, writer='imagemagick')
     return film
 
 
