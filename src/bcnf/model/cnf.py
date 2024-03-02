@@ -8,6 +8,9 @@ from bcnf.model.feature_network import FeatureNetwork
 
 
 class ConditionalInvertibleLayer(nn.Module):
+    log_det_J: float | torch.Tensor | None
+    n_conditions: int
+
     @abstractmethod
     def forward(self, x: torch.Tensor, y: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
         pass
@@ -49,7 +52,7 @@ class ConditionalAffineCouplingLayer(ConditionalInvertibleLayer):
     def __init__(self, input_size: int, hidden_size: int, n_conditions: int) -> None:
         super(ConditionalAffineCouplingLayer, self).__init__()
 
-        self.n_classes = n_conditions
+        self.n_conditions = n_conditions
         self.log_det_J = None
 
         # Create the nested neural network
@@ -64,7 +67,7 @@ class ConditionalAffineCouplingLayer(ConditionalInvertibleLayer):
         x_a, x_b = x.chunk(2, dim=1)
 
         # Get the coefficients from the neural network
-        t, log_s = self.nn(x_a, y)
+        t, log_s = self.nn.forward(x_a, y)
 
         # Apply the transformation
         z_a = x_a  # skip connection
@@ -82,7 +85,7 @@ class ConditionalAffineCouplingLayer(ConditionalInvertibleLayer):
         z_a, z_b = z.chunk(2, dim=1)
 
         # Get the coefficients from the neural network
-        t, log_s = self.nn(z_a, y)
+        t, log_s = self.nn.forward(z_a, y)
 
         # Apply the inverse transformation
         x_a = z_a
@@ -211,14 +214,14 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
             # Determine whether to generate n_samples for each class in y or to use y_i as the class for the i-th sample
             if outer or len(y_tensor) != n_samples:
-                n_classes = len(y_tensor)
+                n_conditions = len(y_tensor)
 
                 # Generate n_samples for each class in y
                 z = sigma * torch.randn(n_samples * len(y_tensor), self.input_size).to(self.device)
                 y_tensor = y_tensor.repeat((n_samples, 1))
 
                 # Apply the inverse network
-                return self.inverse(z, y_tensor).view(n_samples, n_classes, self.input_size)
+                return self.inverse(z, y_tensor).view(n_samples, n_conditions, self.input_size)
             elif len(y_tensor) == n_samples:
                 # Use y_i as the class for the i-th sample
                 z = sigma * torch.randn(n_samples, self.input_size).to(self.device)
