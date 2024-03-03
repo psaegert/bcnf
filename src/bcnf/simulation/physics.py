@@ -102,7 +102,7 @@ def calculate_point_of_impact(x0: np.ndarray = np.array([0, 0, 1.8]),      # ini
     # initial time
     t = 0.0
 
-    while True:
+    while t < 120.0:    # if it takes too long, it be be errorneous (e.g. ball keeps rising)
         # solve ODE for one time step
         v_sol = odeint(ballistic_ODE, v0, [t, t + dt], args=(g, w, b, m, a))
 
@@ -113,7 +113,7 @@ def calculate_point_of_impact(x0: np.ndarray = np.array([0, 0, 1.8]),      # ini
         if x_sol[2] < 0:
             t = -x0[2] / v0[2]
             x_sol = x0 + v0 * t  # point of impact
-            break
+            return x_sol
 
         # update initial position and velocity
         x0 = x_sol
@@ -122,4 +122,4 @@ def calculate_point_of_impact(x0: np.ndarray = np.array([0, 0, 1.8]),      # ini
         # update time
         t += dt
 
-    return x_sol
+    return np.array([999, 999, 999])  # if the object doesn't hit the ground within 120 seconds, return a point far away to filter it out

@@ -8,7 +8,8 @@ def record_trajectory(trajectory: np.ndarray = np.array([[0, 0, 0]]),
                       fov_horizontal: float = 70.0,
                       cam_pos: np.ndarray = np.array([-25, 0, 1.5]),
                       make_gif: bool = True,
-                      gif_name: str = 'trajectory'
+                      gif_name: str = 'trajectory',
+                      radius: float = 0.1143
                       ) -> np.ndarray:
     aspect_ratio = ratio[0] / ratio[1]
 
@@ -24,6 +25,7 @@ def record_trajectory(trajectory: np.ndarray = np.array([[0, 0, 0]]),
             ratio=ratio,
             fov_horizontal=fov_horizontal,
             cam_pos=cam_pos,
+            radius=radius
         )
         film.append(img)
 
@@ -48,6 +50,7 @@ def camera(ball_pos: np.ndarray = np.array([0, 0, 1.5]),
            fov_horizontal: float = 70.0,
            cam_pos: np.ndarray = np.array([-25, 0, 1.5]),
            show_plot: bool = False,
+           radius: float = 0.1143
            ) -> np.ndarray:
     # ratio
     aspect_ratio = ratio[0] / ratio[1]
@@ -65,7 +68,8 @@ def camera(ball_pos: np.ndarray = np.array([0, 0, 1.5]),
     cam_orthogonal = np.cross(cam_dir, cam_orthogonal_z)  # parallel to the camera screen
 
     # ball properties
-    ball_radius = 0.1143  # stadard radius of a football in meters; here covers 90% of normal gaussian
+    # ball_radius = 0.1143  # stadard radius of a football in meters; here covers 90% of normal gaussian
+    ball_radius = radius
 
     # sampling
     n = 5000
