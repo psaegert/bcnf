@@ -213,8 +213,8 @@ class CondRealNVP(ConditionalInvertibleLayer):
             The number of samples to generate.
         y : torch.Tensor
             The conditions used for sampling.
-            If 1st order tensor and len(y) == n_input_conditions, the same conditions are used for all samples.
-            If 2nd order tensor, y.shape must be (n_samples, n_input_conditions), and each row is used as the conditions for each sample.
+            If 1st order tensor and len(y) == n_conditions, the same conditions are used for all samples.
+            If 2nd order tensor, y.shape must be (n_samples, n_conditions), and each row is used as the conditions for each sample.
         sigma : float
             The standard deviation of the normal distribution to sample from.
         outer : bool
@@ -266,10 +266,8 @@ class CondRealNVP(ConditionalInvertibleLayer):
                 # if y.shape[0] != n_samples or y.shape[1] != n_input_conditions:
                 #     raise ValueError(f"y must have shape (n_samples, {n_input_conditions}), but got y.shape = {y.shape}")
 
-                # Use y_i as the condition for the i-th sample
                 z = sigma * torch.randn(n_samples, self.input_size).to(self.device)
 
-                # Apply the inverse network
                 return self.inverse(z, y).view(n_samples, self.input_size)
         else:
             raise ValueError(f"y must be a 1st or 2nd order tensor, but got y.shape = {y.shape}")
