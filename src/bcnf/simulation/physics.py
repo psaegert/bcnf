@@ -1,3 +1,5 @@
+from typing import Callable
+
 import numpy as np
 from scipy.integrate import odeint
 
@@ -59,7 +61,8 @@ def physics_ODE_simulation(x0: np.ndarray = np.array([0, 0, 1.8]),      # initia
                            m: float = 1.0,                              # mass
                            a: np.ndarray = np.array([0, 0, 0]),         # thrust
                            T: float = 10.0,                             # total run time in seconds
-                           dt: float = 0.1                              # time step
+                           dt: float = 0.1,                             # time step
+                           break_on_impact: bool = True                # break the simulation when the object hits the ground
                            ) -> np.ndarray:
 
     # create time grid
@@ -76,7 +79,7 @@ def physics_ODE_simulation(x0: np.ndarray = np.array([0, 0, 1.8]),      # initia
         x_sol[i] = x_sol[i - 1] + v_sol[i] * dt
 
         # if the object hits the ground, calculate the point of impact and break the loop
-        if x_sol[i, 2] < 0:
+        if x_sol[i, 2] < 0 and break_on_impact:
             t = -x_sol[i - 1, 2] / v_sol[i, 2]
             x_sol[i] = x_sol[i - 1] + v_sol[i] * t     # point of impact
 
@@ -85,6 +88,71 @@ def physics_ODE_simulation(x0: np.ndarray = np.array([0, 0, 1.8]),      # initia
             break
 
     return x_sol
+
+
+def get_data(
+        x0_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size),
+        v0_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size),
+        g_pdf: Callable = lambda size: np.random.normal(9.81, 0.1, size=size) * np.array([0, 0, -1]),
+        w_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size),
+        b_pdf: Callable = lambda size: np.random.uniform(0, 1, size=size),
+        m_pdf: Callable = lambda size: np.random.uniform(0.5, 1.5, size=size),
+        a_pdf: Callable = lambda size: np.random.uniform(0, 0, size=size),
+        T: float = 5.0,
+        dt: float = 0.1,
+        N: int = 1,
+        break_on_impact: bool = False) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Create a dataset from prior parameter distributions and the simulation model.
+
+    Parameters
+    ----------
+    x0_pdf : function
+        A function that returns a sample from the prior distribution of the initial position.
+    v0_pdf : function
+        A function that returns a sample from the prior distribution of the initial velocity.
+    g_pdf : function
+        A function that returns a sample from the prior distribution of the gravitational acceleration.
+    w_pdf : function
+        A function that returns a sample from the prior distribution of the wind.
+    b_pdf : function
+        A function that returns a sample from the prior distribution of the drag coefficient.
+    m_pdf : function
+        A function that returns a sample from the prior distribution of the mass.
+    a_pdf : function
+        A function that returns a sample from the prior distribution of the thrust.
+    T : float
+        The total run time in seconds.
+    dt : float
+        The time step.
+    N : int
+        The number of simulations to run.
+
+    Returns
+    -------
+    X : array
+        The simulated data, shape (N, int(T / dt), 3).
+    y : array
+        The parameters used to simulate the data, shape (N, 14).
+    """
+
+    x0 = x0_pdf(size=(N, 3))
+    v0 = v0_pdf(size=(N, 3))
+    g = g_pdf(size=(N, 3))
+    w = w_pdf(size=(N, 3))
+    b = b_pdf(size=(N,))
+    m = m_pdf(size=(N,))
+    a = a_pdf(size=(N, 3))
+
+    # Run the simulation
+    X = np.zeros((N, int(T / dt), 3))
+    for i in range(N):
+        X[i] = physics_ODE_simulation(x0[i], v0[i], g[i], w[i], b[i], m[i], a[i], T, dt, break_on_impact=break_on_impact)
+
+    # Stack the parameters into a single vector for each simulation
+    y = np.column_stack([x0, v0, w, b, m, a])
+
+    return X, y
 
 
 # calculate point of impact for given parameters
