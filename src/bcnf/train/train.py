@@ -14,7 +14,7 @@ def inn_nll_loss(z: torch.Tensor, log_det_J: torch.Tensor, reduction: str = 'mea
 
 def train_CondRealNVP(
         model: CondRealNVP,
-        optimizer: torch.optim.optimizer.Optimizer,
+        optimizer: torch.optim.Optimizer,
         X_train: torch.Tensor,
         y_train: torch.Tensor,
         n_epochs: int = 1,
@@ -130,6 +130,8 @@ def train_CondRealNVP(
                 # Add the loss to the history
                 loss_history["val"].append(val_loss)
 
-        pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f}")
+            pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f}")
+        else:
+            pbar.set_description(f"Train: {train_loss:.4f}")
 
     return loss_history

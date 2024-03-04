@@ -2,6 +2,7 @@ from typing import Callable
 
 import numpy as np
 from scipy.integrate import odeint
+from tqdm import tqdm
 
 # simple physics simulation
 
@@ -146,11 +147,11 @@ def get_data(
 
     # Run the simulation
     X = np.zeros((N, int(T / dt), 3))
-    for i in range(N):
+    for i in tqdm(range(N)):
         X[i] = physics_ODE_simulation(x0[i], v0[i], g[i], w[i], b[i], m[i], a[i], T, dt, break_on_impact=break_on_impact)
 
     # Stack the parameters into a single vector for each simulation
-    y = np.column_stack([x0, v0, w, b, m, a])
+    y = np.column_stack([x0, v0, g, w, b, m, a])
 
     return X, y
 

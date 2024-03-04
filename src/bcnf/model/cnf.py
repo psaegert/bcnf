@@ -21,7 +21,7 @@ class ConditionalInvertibleLayer(nn.Module):
 
 
 class ConditionalNestedNeuralNetwork(nn.Module):
-    def __init__(self, input_size: int, output_size: int, hidden_size: int, n_conditions: int, dropout: float = 0.2) -> None:
+    def __init__(self, input_size: int, output_size: int, hidden_size: int, n_conditions: int, dropout: float = 0.2, device: str = "cpu") -> None:
         super(ConditionalNestedNeuralNetwork, self).__init__()
 
         self.n_conditions = n_conditions
@@ -34,7 +34,14 @@ class ConditionalNestedNeuralNetwork(nn.Module):
             nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_size, output_size * 2)
-        )
+        ).to(device)
+
+    def to(self, device: str) -> "ConditionalNestedNeuralNetwork":  # type: ignore
+        super().to(device)
+        self.device = device
+        self.layers.to(device)
+
+        return self
 
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         if self.n_conditions > 0:
@@ -49,18 +56,28 @@ class ConditionalNestedNeuralNetwork(nn.Module):
 
 
 class ConditionalAffineCouplingLayer(ConditionalInvertibleLayer):
-    def __init__(self, input_size: int, hidden_size: int, n_conditions: int) -> None:
+    def __init__(self, input_size: int, hidden_size: int, n_conditions: int, dropout: float = 0.2, device: str = "cpu") -> None:
         super(ConditionalAffineCouplingLayer, self).__init__()
 
         self.n_conditions = n_conditions
-        self.log_det_J = None
+        self.log_det_J: torch.Tensor = torch.zeros(1).to(device)
 
         # Create the nested neural network
         self.nn = ConditionalNestedNeuralNetwork(
             input_size=np.ceil(input_size / 2).astype(int),
             output_size=np.floor(input_size / 2).astype(int),
             hidden_size=hidden_size,
-            n_conditions=n_conditions)
+            n_conditions=n_conditions,
+            dropout=dropout,
+            device=device)
+
+    def to(self, device: str) -> "ConditionalAffineCouplingLayer":  # type: ignore
+        super().to(device)
+        self.device = device
+        self.log_det_J = self.log_det_J.to(device)
+        self.nn.to(device)
+
+        return self
 
     def forward(self, x: torch.Tensor, y: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
         # Split the input into two halves
@@ -99,10 +116,18 @@ class OrthonormalTransformation(ConditionalInvertibleLayer):
     def __init__(self, input_size: int) -> None:
         super(OrthonormalTransformation, self).__init__()
 
-        self.log_det_J = 0
+        self.log_det_J: float = 0
 
         # Create the random orthonormal matrix via QR decomposition
-        self.orthonormal_matrix = nn.Parameter(torch.linalg.qr(torch.randn(input_size, input_size))[0], requires_grad=False)
+        self.orthonormal_matrix: torch.Tensor = torch.linalg.qr(torch.randn(input_size, input_size))[0]
+        self.orthonormal_matrix.requires_grad = False
+
+    def to(self, device: str) -> "OrthonormalTransformation":  # type: ignore
+        super().to(device)
+        self.device = device
+        self.orthonormal_matrix = self.orthonormal_matrix.to(device)
+
+        return self
 
     def forward(self, x: torch.Tensor, y: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
         # Apply the transformation
@@ -114,7 +139,7 @@ class OrthonormalTransformation(ConditionalInvertibleLayer):
 
 
 class CondRealNVP(ConditionalInvertibleLayer):
-    def __init__(self, input_size: int, hidden_size: int, blocks: int, n_conditions: int, feature_network: FeatureNetwork | None, device: str = "cpu"):
+    def __init__(self, input_size: int, hidden_size: int, n_blocks: int, n_conditions: int, feature_network: FeatureNetwork | None, dropout: float = 0.2, device: str = "cpu"):
         super(CondRealNVP, self).__init__()
 
         if n_conditions == 0 or feature_network is None:
@@ -124,25 +149,29 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
         self.input_size = input_size
         self.hidden_size = hidden_size
-        self.blocks = blocks
+        self.n_blocks = n_blocks
         self.n_conditions = n_conditions
         self.device = device
+        self.dropout = dropout
+        self.log_det_J: torch.Tensor = torch.zeros(1).to(self.device)
 
-        self.layers = self._build_network()
-
-        self.log_det_J: float | None = None
-
-    def _build_network(self) -> nn.ModuleList:
         # Create the network
-        layers: list[ConditionalInvertibleLayer] = []
-        for _ in range(self.blocks - 1):
-            layers.append(ConditionalAffineCouplingLayer(self.input_size, self.hidden_size, self.n_conditions))
-            layers.append(OrthonormalTransformation(self.input_size))
+        self.layers: list[ConditionalInvertibleLayer] = []
+        for _ in range(self.n_blocks - 1):
+            self.layers.append(ConditionalAffineCouplingLayer(self.input_size, self.hidden_size, self.n_conditions, dropout=self.dropout, device=self.device))
+            self.layers.append(OrthonormalTransformation(self.input_size))
 
         # Add the final affine coupling layer
-        layers.append(ConditionalAffineCouplingLayer(self.input_size, self.hidden_size, self.n_conditions))
+        self.layers.append(ConditionalAffineCouplingLayer(self.input_size, self.hidden_size, self.n_conditions, dropout=self.dropout, device=self.device))
 
-        return nn.ModuleList(layers)
+    def to(self, device: str) -> "CondRealNVP":  # type: ignore
+        super().to(device)
+        self.device = device
+        self.log_det_J = self.log_det_J.to(device)
+        for layer in self.layers:
+            layer.to(device)
+
+        return self
 
     def forward(self, x: torch.Tensor, y: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
         # Apply the feature network to y
@@ -151,7 +180,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
         # Apply the network
 
         if log_det_J:
-            self.log_det_J = 0
+            self.log_det_J = torch.zeros(x.shape[0]).to(self.device)
 
             for layer in self.layers:
                 x = layer(x, y, log_det_J)
@@ -174,7 +203,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
         return z
 
-    def sample(self, n_samples: int, y: int | list[int], outer: bool = True, sigma: float = 1) -> torch.Tensor:
+    def sample(self, n_samples: int, y: torch.Tensor, sigma: float = 1, outer: bool = False, verbose: bool = False) -> torch.Tensor:
         """
         Sample from the model.
 
@@ -182,12 +211,17 @@ class CondRealNVP(ConditionalInvertibleLayer):
         ----------
         n_samples : int
             The number of samples to generate.
-        y : int | list[int]
-            The class to generate the samples from. If int, generate n_samples from that class. If list[int], generate n_samples for each class in the list if outer is True. If outer is False and dim(y) == n_samples, use y_i as the class for the i-th sample.
-        outer : bool
-            Whether to generate n_samples for each class in y (True) or to use y_i as the class for the i-th sample (False).
+        y : torch.Tensor
+            The conditions used for sampling.
+            If 1st order tensor and len(y) == n_input_conditions, the same conditions are used for all samples.
+            If 2nd order tensor, y.shape must be (n_samples, n_input_conditions), and each row is used as the conditions for each sample.
         sigma : float
             The standard deviation of the normal distribution to sample from.
+        outer : bool
+            If True, the conditions are broadcasted to match the shape of the samples.
+            If False, the conditions are matched to the shape of the samples.
+        verbose : bool
+            If True, print debug information.
 
         Returns
         -------
@@ -195,40 +229,47 @@ class CondRealNVP(ConditionalInvertibleLayer):
             The generated samples.
         """
 
-        if isinstance(y, int):
-            # Generate n_samples points for the given class y
-            z = sigma * torch.randn(n_samples, self.input_size).to(self.device)
+        print(f'{y.shape=}')
 
-            # Broadcast y to the correct shape so it matches z
-            y_broadcast = torch.tensor([y]).repeat(n_samples).to(self.device)
+        y = y.to(self.device)
+
+        if y.ndim == 1:
+            if verbose:
+                print('Broadcasting')
+            # if len(y) != n_input_conditions:
+            #     raise ValueError(f"y must have length {n_input_conditions}, but got len(y) = {len(y)}")
+
+            # Generate n_samples for each condition in y
+            z = sigma * torch.randn(n_samples, self.input_size).to(self.device)
+            y = y.repeat(n_samples, 1)
 
             # Apply the inverse network
-            return self.inverse(z, y_broadcast).view(n_samples, 1, self.input_size)
-        elif type(y) in [list, np.ndarray, torch.Tensor]:
-            # Convert y to a tensor
-            if isinstance(y, list) or isinstance(y, np.ndarray):
-                y_tensor = torch.tensor(y, dtype=torch.float32)
-                y_tensor = y_tensor.to(self.device)
-            else:
-                y_tensor = y.to(self.device)
+            return self.inverse(z, y).view(n_samples, self.input_size)
+        elif y.ndim == 2:
+            if outer:
+                if verbose:
+                    print('Outer')
+                # if y.shape[1] != n_input_conditions:
+                #     raise ValueError(f"y must have shape (n_samples_per_condition, {n_input_conditions}), but got y.shape = {y.shape}")
 
-            # Determine whether to generate n_samples for each class in y or to use y_i as the class for the i-th sample
-            if outer or len(y_tensor) != n_samples:
-                n_conditions = len(y_tensor)
+                n_samples_per_condition = y.shape[0]
 
-                # Generate n_samples for each class in y
-                z = sigma * torch.randn(n_samples * len(y_tensor), self.input_size).to(self.device)
-                y_tensor = y_tensor.repeat((n_samples, 1))
+                # Generate n_samples for each condition in y
+                z = sigma * torch.randn(n_samples * n_samples_per_condition, self.input_size).to(self.device)
+                y = y.repeat(n_samples, 1)
 
                 # Apply the inverse network
-                return self.inverse(z, y_tensor).view(n_samples, n_conditions, self.input_size)
-            elif len(y_tensor) == n_samples:
-                # Use y_i as the class for the i-th sample
+                return self.inverse(z, y).view(n_samples, n_samples_per_condition, self.input_size)
+            else:
+                if verbose:
+                    print('Matching')
+                # if y.shape[0] != n_samples or y.shape[1] != n_input_conditions:
+                #     raise ValueError(f"y must have shape (n_samples, {n_input_conditions}), but got y.shape = {y.shape}")
+
+                # Use y_i as the condition for the i-th sample
                 z = sigma * torch.randn(n_samples, self.input_size).to(self.device)
 
                 # Apply the inverse network
-                return self.inverse(z, y_tensor).view(n_samples, 1, self.input_size)
-            else:
-                raise ValueError(f"y must be an int, a list of ints of length n_samples or a list of ints of length n_samples * len(y). y: {y_tensor}")
+                return self.inverse(z, y).view(n_samples, self.input_size)
         else:
-            raise ValueError(f"Unsupported type for y. Got {type(y)} but expected int, list, np.ndarray or torch.Tensor.")
+            raise ValueError(f"y must be a 1st or 2nd order tensor, but got y.shape = {y.shape}")
