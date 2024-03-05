@@ -4,7 +4,20 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from bcnf.model.feature_network import FeatureNetwork
+from bcnf.models.feature_network import FeatureNetwork
+
+
+class InvertibleLayer(nn.Module):
+    log_det_J: float | torch.Tensor | None
+    n_conditions: int
+
+    @abstractmethod
+    def forward(self, x: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
+        pass
+
+    @abstractmethod
+    def inverse(self, z: torch.Tensor) -> torch.Tensor:
+        pass
 
 
 class ConditionalInvertibleLayer(nn.Module):
@@ -28,11 +41,11 @@ class ConditionalNestedNeuralNetwork(nn.Module):
 
         self.layers = nn.Sequential(
             nn.Linear(input_size + n_conditions, hidden_size),
-            nn.GELU(),
             nn.Dropout(dropout),
+            nn.GELU(),
             nn.Linear(hidden_size, hidden_size),
-            nn.GELU(),
             nn.Dropout(dropout),
+            nn.GELU(),
             nn.Linear(hidden_size, output_size * 2)
         ).to(device)
 
@@ -138,8 +151,23 @@ class OrthonormalTransformation(ConditionalInvertibleLayer):
         return z @ self.orthonormal_matrix.T
 
 
+class ActNorm(InvertibleLayer):
+    def __init__(self, size: int) -> None:
+        super(ActNorm, self).__init__()
+        self.scale = nn.Parameter(torch.ones(size))
+        self.bias = nn.Parameter(torch.zeros(size))
+
+    def forward(self, x: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
+        z = self.scale * x + self.bias
+        self.log_det_J = torch.sum(torch.log(torch.abs(self.scale)), dim=-1)
+        return z
+
+    def inverse(self, z: torch.Tensor) -> torch.Tensor:
+        return (z - self.bias) / self.scale
+
+
 class CondRealNVP(ConditionalInvertibleLayer):
-    def __init__(self, input_size: int, hidden_size: int, n_blocks: int, n_conditions: int, feature_network: FeatureNetwork | None, dropout: float = 0.2, device: str = "cpu"):
+    def __init__(self, size: int, hidden_size: int, n_blocks: int, n_conditions: int, feature_network: FeatureNetwork | None, dropout: float = 0.0, device: str = "cpu"):
         super(CondRealNVP, self).__init__()
 
         if n_conditions == 0 or feature_network is None:
@@ -147,7 +175,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
         else:
             self.h = feature_network
 
-        self.input_size = input_size
+        self.size = size
         self.hidden_size = hidden_size
         self.n_blocks = n_blocks
         self.n_conditions = n_conditions
@@ -156,13 +184,13 @@ class CondRealNVP(ConditionalInvertibleLayer):
         self.log_det_J: torch.Tensor = torch.zeros(1).to(self.device)
 
         # Create the network
-        self.layers: list[ConditionalInvertibleLayer] = []
+        self.layers = nn.ModuleList()
         for _ in range(self.n_blocks - 1):
-            self.layers.append(ConditionalAffineCouplingLayer(self.input_size, self.hidden_size, self.n_conditions, dropout=self.dropout, device=self.device))
-            self.layers.append(OrthonormalTransformation(self.input_size))
+            self.layers.append(ConditionalAffineCouplingLayer(self.size, self.hidden_size, self.n_conditions, dropout=self.dropout, device=self.device))
+            self.layers.append(OrthonormalTransformation(self.size))
 
         # Add the final affine coupling layer
-        self.layers.append(ConditionalAffineCouplingLayer(self.input_size, self.hidden_size, self.n_conditions, dropout=self.dropout, device=self.device))
+        self.layers.append(ConditionalAffineCouplingLayer(self.size, self.hidden_size, self.n_conditions, dropout=self.dropout, device=self.device))
 
     def to(self, device: str) -> "CondRealNVP":  # type: ignore
         super().to(device)
@@ -240,11 +268,11 @@ class CondRealNVP(ConditionalInvertibleLayer):
             #     raise ValueError(f"y must have length {n_input_conditions}, but got len(y) = {len(y)}")
 
             # Generate n_samples for each condition in y
-            z = sigma * torch.randn(n_samples, self.input_size).to(self.device)
+            z = sigma * torch.randn(n_samples, self.size).to(self.device)
             y = y.repeat(n_samples, 1)
 
             # Apply the inverse network
-            return self.inverse(z, y).view(n_samples, self.input_size)
+            return self.inverse(z, y).view(n_samples, self.size)
         elif y.ndim == 2:
             if outer:
                 if verbose:
@@ -255,19 +283,19 @@ class CondRealNVP(ConditionalInvertibleLayer):
                 n_samples_per_condition = y.shape[0]
 
                 # Generate n_samples for each condition in y
-                z = sigma * torch.randn(n_samples * n_samples_per_condition, self.input_size).to(self.device)
+                z = sigma * torch.randn(n_samples * n_samples_per_condition, self.size).to(self.device)
                 y = y.repeat(n_samples, 1)
 
                 # Apply the inverse network
-                return self.inverse(z, y).view(n_samples, n_samples_per_condition, self.input_size)
+                return self.inverse(z, y).view(n_samples, n_samples_per_condition, self.size)
             else:
                 if verbose:
                     print('Matching')
                 # if y.shape[0] != n_samples or y.shape[1] != n_input_conditions:
                 #     raise ValueError(f"y must have shape (n_samples, {n_input_conditions}), but got y.shape = {y.shape}")
 
-                z = sigma * torch.randn(n_samples, self.input_size).to(self.device)
+                z = sigma * torch.randn(n_samples, self.size).to(self.device)
 
-                return self.inverse(z, y).view(n_samples, self.input_size)
+                return self.inverse(z, y).view(n_samples, self.size)
         else:
             raise ValueError(f"y must be a 1st or 2nd order tensor, but got y.shape = {y.shape}")

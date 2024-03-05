@@ -95,7 +95,7 @@ def get_data(
         x0_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size),
         v0_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size),
         g_pdf: Callable = lambda size: np.random.normal(9.81, 0.1, size=size) * np.array([0, 0, -1]),
-        w_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size),
+        w_pdf: Callable = lambda size: np.random.normal(0, 1, size=size) * np.array([1, 1, 0.1]),
         b_pdf: Callable = lambda size: np.random.uniform(0, 1, size=size),
         m_pdf: Callable = lambda size: np.random.uniform(0.5, 1.5, size=size),
         a_pdf: Callable = lambda size: np.random.uniform(0, 0, size=size),

@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
-from bcnf.model import CondRealNVP
+from bcnf.models import CondRealNVP
 
 
 def inn_nll_loss(z: torch.Tensor, log_det_J: torch.Tensor, reduction: str = 'mean') -> torch.Tensor:
@@ -15,13 +15,13 @@ def inn_nll_loss(z: torch.Tensor, log_det_J: torch.Tensor, reduction: str = 'mea
 def train_CondRealNVP(
         model: CondRealNVP,
         optimizer: torch.optim.Optimizer,
+        lr_scheduler: torch.optim.lr_scheduler._LRScheduler | None,
         X_train: torch.Tensor,
         y_train: torch.Tensor,
         n_epochs: int = 1,
         X_val: torch.Tensor | None = None,
         y_val: torch.Tensor | None = None,
         batch_size: int = 16,
-        loss_history: dict[str, list] | None = None,
         verbose: bool = True) -> dict:
     """
     Train the model using the INN loss function
@@ -44,8 +44,6 @@ def train_CondRealNVP(
         The validation conditions (simulation)
     batch_size : int
         The batch size to use
-    loss_history : dict | None
-        The loss history to append to
     verbose : bool
         Whether to display a progress bar
 
@@ -63,7 +61,7 @@ def train_CondRealNVP(
         datasetVal = TensorDataset(X_val, y_val)
         val_loader = DataLoader(datasetVal, batch_size=batch_size, shuffle=False)
 
-    loss_history = {
+    loss_history: dict[str, list] = {
         "train": [],
         "val": []
     }
@@ -130,8 +128,12 @@ def train_CondRealNVP(
                 # Add the loss to the history
                 loss_history["val"].append(val_loss)
 
-            pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f}")
+            pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f}, lr: {optimizer.param_groups[0]['lr']:.2e}")
         else:
-            pbar.set_description(f"Train: {train_loss:.4f}")
+            pbar.set_description(f"Train: {train_loss:.4f}, lr: {optimizer.param_groups[0]['lr']:.2e}")
+
+        # Step the scheduler
+        if lr_scheduler is not None:
+            lr_scheduler.step()
 
     return loss_history
