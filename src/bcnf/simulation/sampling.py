@@ -1,5 +1,6 @@
 import numpy as np
-import pandas as pd
+import pickle
+import os
 from tqdm import tqdm
 
 from bcnf.simulation.camera import record_trajectory
@@ -111,11 +112,35 @@ def generate_data(n: int = 100,
                   ) -> None:
     pbar = tqdm(total=n)
 
-    simulations: list[np.ndarray] = []
     accepted_count = 0
     rejected_count = 0
 
-    while len(simulations) < n:
+    data: dict[str, list] = {
+        'cams': [],
+        'traj': [],
+        'x0_x': [],
+        'x0_y': [],
+        'x0_z': [],
+        'v0_x': [],
+        'v0_y': [],
+        'v0_z': [],
+        'g': [],
+        'w_x': [],
+        'w_y': [],
+        'w_z': [],
+        'b': [],
+        'A': [],
+        'Cd': [],
+        'rho': [],
+        'm': [],
+        'a_x': [],
+        'a_y': [],
+        'a_z': [],
+        'l': [],
+        'r': []
+    }
+
+    while accepted_count < n:
         x0, v0, g, w, b, m, a, l, r, A, Cd, rho = sample_ballistic_parameters(num_cams=num_cams)
 
         # first check: will the ball actually come down again?
@@ -141,78 +166,73 @@ def generate_data(n: int = 100,
         # add to list
         if type == 'render':
             # append cam1, cam2 and parameters
-            simulations.append({
-                'cams': [cam for cam in cams],
-                'x0_x': x0[0],
-                'x0_y': x0[1],
-                'x0_z': x0[2],
-                'v0_x': v0[0],
-                'v0_y': v0[1],
-                'v0_z': v0[2],
-                'g': g[2],
-                'w_x': w[0],
-                'w_y': w[1],
-                'w_z': w[2],
-                'b': b,
-                'A': A,
-                'Cd': Cd,
-                'rho': rho,
-                'm': m,
-                'a_x': a[0],
-                'a_y': a[1],
-                'a_z': a[2],
-                'l': l,
-                'r': r
-            })
+            data['cams'].append(cams)
+            data['traj'].append(traj)
+            data['x0_x'].append(x0[0])
+            data['x0_y'].append(x0[1])
+            data['x0_z'].append(x0[2])
+            data['v0_x'].append(v0[0])
+            data['v0_y'].append(v0[1])
+            data['v0_z'].append(v0[2])
+            data['g'].append(g[2])
+            data['w_x'].append(w[0])
+            data['w_y'].append(w[1])
+            data['w_z'].append(w[2])
+            data['b'].append(b)
+            data['A'].append(A)
+            data['Cd'].append(Cd)
+            data['rho'].append(rho)
+            data['m'].append(m)
+            data['a_x'].append(a[0])
+            data['a_y'].append(a[1])
+            data['a_z'].append(a[2])
+            data['l'].append(l)
+            data['r'].append(r)
 
         elif type == 'parameters':
-            simulations.append({
-                'x0_x': x0[0],
-                'x0_y': x0[1],
-                'x0_z': x0[2],
-                'v0_x': v0[0],
-                'v0_y': v0[1],
-                'v0_z': v0[2],
-                'g': g[2],
-                'w_x': w[0],
-                'w_y': w[1],
-                'w_z': w[2],
-                'b': b,
-                'A': A,
-                'Cd': Cd,
-                'rho': rho,
-                'm': m,
-                'a_x': a[0],
-                'a_y': a[1],
-                'a_z': a[2],
-                'l': l,
-                'r': r
-            })
+            data['x0_x'].append(x0[0])
+            data['x0_y'].append(x0[1])
+            data['x0_z'].append(x0[2])
+            data['v0_x'].append(v0[0])
+            data['v0_y'].append(v0[1])
+            data['v0_z'].append(v0[2])
+            data['g'].append(g[2])
+            data['w_x'].append(w[0])
+            data['w_y'].append(w[1])
+            data['w_z'].append(w[2])
+            data['b'].append(b)
+            data['A'].append(A)
+            data['Cd'].append(Cd)
+            data['rho'].append(rho)
+            data['m'].append(m)
+            data['a_x'].append(a[0])
+            data['a_y'].append(a[1])
+            data['a_z'].append(a[2])
+            data['l'].append(l)
+            data['r'].append(r)
 
         elif type == 'trajectory':
-            simulations.append({
-                'traj': traj,
-                'x0_x': x0[0],
-                'x0_y': x0[1],
-                'x0_z': x0[2],
-                'v0_x': v0[0],
-                'v0_y': v0[1],
-                'v0_z': v0[2],
-                'g': g[2],
-                'w_x': w[0],
-                'w_y': w[1],
-                'w_z': w[2],
-                'b': b,
-                'A': A,
-                'Cd': Cd,
-                'rho': rho,
-                'm': m,
-                'a_x': a[0],
-                'a_y': a[1],
-                'a_z': a[2],
-                'l': l,
-                'r': r
-            })
+            data['traj'].append(traj)
+            data['x0_x'].append(x0[0])
+            data['x0_y'].append(x0[1])
+            data['x0_z'].append(x0[2])
+            data['v0_x'].append(v0[0])
+            data['v0_y'].append(v0[1])
+            data['v0_z'].append(v0[2])
+            data['g'].append(g[2])
+            data['w_x'].append(w[0])
+            data['w_y'].append(w[1])
+            data['w_z'].append(w[2])
+            data['b'].append(b)
+            data['A'].append(A)
+            data['Cd'].append(Cd)
+            data['rho'].append(rho)
+            data['m'].append(m)
+            data['a_x'].append(a[0])
+            data['a_y'].append(a[1])
+            data['a_z'].append(a[2])
+            data['l'].append(l)
+            data['r'].append(r)
         else:
             raise ValueError('type must be one of "render", "trajectory", or "parameters"')
 
@@ -222,5 +242,7 @@ def generate_data(n: int = 100,
         if print_acc_rej:
             pbar.set_postfix(accepted=accepted_count, rejected=rejected_count)
 
-    df = pd.DataFrame(simulations)
-    df.to_pickle(f'{get_dir()}/data/bcnf-data/{name}.pkl')
+    pbar.close()
+
+    with open(os.path.join(get_dir('data', 'bcnf_data', create=True), name + '.pkl'), 'wb') as f:
+        pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)

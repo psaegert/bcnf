@@ -2,7 +2,6 @@ matplotlib
 numpy
 opencv-python
 pandas
-pickle
 scikit-learn
 scipy
 torch
