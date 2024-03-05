@@ -2,7 +2,7 @@ import unittest
 
 import torch
 
-from bcnf.model.cnf import ConditionalAffineCouplingLayer, CondRealNVP
+from bcnf.models.cnf import ConditionalAffineCouplingLayer, CondRealNVP
 
 
 class TestCNFInvertibility(unittest.TestCase):
