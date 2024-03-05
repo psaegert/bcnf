@@ -19,6 +19,7 @@ def train_CondRealNVP(
         X_train: torch.Tensor,
         y_train: torch.Tensor,
         n_epochs: int = 1,
+        val_loss_patience: float | None = None,
         X_val: torch.Tensor | None = None,
         y_val: torch.Tensor | None = None,
         batch_size: int = 16,
@@ -37,7 +38,9 @@ def train_CondRealNVP(
     y_train : torch.Tensor
         The training conditions (simulation)
     n_epochs : int
-        The number of epochs to train for
+        The maximum number of epochs to train for
+    val_loss_patience : float
+        The number of epochs to wait before stopping if the validation loss does not decrease
     X_val : torch.Tensor | None
         The validation data (parameters)
     y_val : torch.Tensor | None
@@ -57,9 +60,14 @@ def train_CondRealNVP(
     train_loader = DataLoader(datasetTrain, batch_size=batch_size, shuffle=True)
 
     # Create the validation dataloader
-    if X_val is not None and y_val is not None:
+    if (X_val is not None and y_val is not None):
+        do_validate = True
         datasetVal = TensorDataset(X_val, y_val)
         val_loader = DataLoader(datasetVal, batch_size=batch_size, shuffle=False)
+        best_val_loss = float('inf')
+        best_val_epoch = 0
+    else:
+        do_validate = False
 
     loss_history: dict[str, list] = {
         "train": [],
@@ -69,7 +77,7 @@ def train_CondRealNVP(
     pbar = tqdm(range(n_epochs), disable=not verbose)
 
     # Train the model
-    for _ in pbar:
+    for epoch in pbar:
         model.train()
         train_loss = 0.0
 
@@ -81,9 +89,7 @@ def train_CondRealNVP(
             z = model.forward(y, x, log_det_J=True)
 
             # Calculate the loss
-            forward_loss = inn_nll_loss(z, model.log_det_J)
-
-            loss = forward_loss
+            loss = inn_nll_loss(z, model.log_det_J)
 
             # Backpropagate
             loss.backward()
@@ -101,7 +107,7 @@ def train_CondRealNVP(
         loss_history["train"].append(train_loss)
 
         # Calculate the loss on the validation set
-        if X_val is not None:
+        if do_validate:
             model.eval()
             with torch.no_grad():
                 val_loss = 0.0
@@ -115,9 +121,7 @@ def train_CondRealNVP(
                     z = model.forward(y, x, log_det_J=True)
 
                     # Calculate the loss
-                    forward_loss = inn_nll_loss(z, model.log_det_J)
-
-                    loss = forward_loss
+                    loss = inn_nll_loss(z, model.log_det_J)
 
                     # Add the loss to the total
                     val_loss += loss.item()
@@ -128,12 +132,23 @@ def train_CondRealNVP(
                 # Add the loss to the history
                 loss_history["val"].append(val_loss)
 
-            pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f}, lr: {optimizer.param_groups[0]['lr']:.2e}")
+            pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f} | lr: {optimizer.param_groups[0]['lr']:.2e} - Val*: {best_val_loss:.4f}")
         else:
             pbar.set_description(f"Train: {train_loss:.4f}, lr: {optimizer.param_groups[0]['lr']:.2e}")
 
         # Step the scheduler
         if lr_scheduler is not None:
-            lr_scheduler.step()
+            if isinstance(lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                lr_scheduler.step(val_loss)
+            else:
+                lr_scheduler.step()
+
+        # Check if the validation loss did not decrease in the last `val_loss_patience` epochs
+        if do_validate and val_loss_patience is not None:
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_val_epoch = epoch
+            elif (epoch - best_val_epoch) >= val_loss_patience:
+                break
 
     return loss_history

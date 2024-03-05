@@ -167,7 +167,7 @@ class ActNorm(InvertibleLayer):
 
 
 class CondRealNVP(ConditionalInvertibleLayer):
-    def __init__(self, size: int, hidden_size: int, n_blocks: int, n_conditions: int, feature_network: FeatureNetwork | None, dropout: float = 0.0, device: str = "cpu"):
+    def __init__(self, size: int, hidden_size: int, n_blocks: int, n_conditions: int, feature_network: FeatureNetwork | None, dropout: float = 0.0, act_norm: bool = False, device: str = "cpu"):
         super(CondRealNVP, self).__init__()
 
         if n_conditions == 0 or feature_network is None:
@@ -186,6 +186,8 @@ class CondRealNVP(ConditionalInvertibleLayer):
         # Create the network
         self.layers = nn.ModuleList()
         for _ in range(self.n_blocks - 1):
+            if act_norm:
+                self.layers.append(ActNorm(self.size))
             self.layers.append(ConditionalAffineCouplingLayer(self.size, self.hidden_size, self.n_conditions, dropout=self.dropout, device=self.device))
             self.layers.append(OrthonormalTransformation(self.size))
 
@@ -211,7 +213,12 @@ class CondRealNVP(ConditionalInvertibleLayer):
             self.log_det_J = torch.zeros(x.shape[0]).to(self.device)
 
             for layer in self.layers:
-                x = layer(x, y, log_det_J)
+                if isinstance(layer, ConditionalInvertibleLayer):
+                    x = layer(x, y, log_det_J)
+                elif isinstance(layer, InvertibleLayer):
+                    x = layer(x, log_det_J)
+                else:
+                    raise ValueError(f"Layer must be an instance of ConditionalInvertibleLayer or InvertibleLayer, but got {type(layer)}")
                 self.log_det_J += layer.log_det_J
 
             return x
@@ -227,7 +234,12 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
         # Apply the network in reverse
         for layer in reversed(self.layers):
-            z = layer.inverse(z, y)
+            if isinstance(layer, ConditionalInvertibleLayer):
+                z = layer.inverse(z, y)
+            elif isinstance(layer, InvertibleLayer):
+                z = layer.inverse(z)
+            else:
+                raise ValueError(f"Layer must be an instance of ConditionalInvertibleLayer or InvertibleLayer, but got {type(layer)}")
 
         return z
 
