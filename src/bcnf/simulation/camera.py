@@ -1,5 +1,3 @@
-import os
-
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,7 +8,8 @@ def record_trajectory(trajectory: np.ndarray = np.array([[0, 0, 0]]),
                       fov_horizontal: float = 70.0,
                       cam_pos: np.ndarray = np.array([-25, 0, 1.5]),
                       make_gif: bool = True,
-                      gif_path: str = 'trajectory.gif'
+                      gif_name: str = 'trajectory',
+                      radius: float = 0.1143
                       ) -> np.ndarray:
     aspect_ratio = ratio[0] / ratio[1]
 
@@ -26,6 +25,7 @@ def record_trajectory(trajectory: np.ndarray = np.array([[0, 0, 0]]),
             ratio=ratio,
             fov_horizontal=fov_horizontal,
             cam_pos=cam_pos,
+            radius=radius
         )
         film.append(img)
 
@@ -35,13 +35,13 @@ def record_trajectory(trajectory: np.ndarray = np.array([[0, 0, 0]]),
         fig, ax = plt.subplots(figsize=(ratio[0], ratio[1]))
         ax.set_xlabel('horizontal angle')
         ax.set_ylabel('vertical angle')
-        ax.title.set_text(f'{os.path.basename(gif_path)}')
+        ax.title.set_text(f'{gif_name}')
         gif = []
         for i in range(trajectory.shape[0]):
             gif.append([ax.imshow(film[i], extent=[-phi, phi, -theta, theta], cmap='hot', animated=True)])
 
         ani = animation.ArtistAnimation(fig, gif, interval=100, blit=True, repeat_delay=3000)
-        ani.save(gif_path, writer='imagemagick')
+        ani.save(f'tests/gifs/{gif_name}.gif', writer='imagemagick')
     return film
 
 
@@ -50,6 +50,7 @@ def camera(ball_pos: np.ndarray = np.array([0, 0, 1.5]),
            fov_horizontal: float = 70.0,
            cam_pos: np.ndarray = np.array([-25, 0, 1.5]),
            show_plot: bool = False,
+           radius: float = 0.1143
            ) -> np.ndarray:
     # ratio
     aspect_ratio = ratio[0] / ratio[1]
@@ -67,7 +68,8 @@ def camera(ball_pos: np.ndarray = np.array([0, 0, 1.5]),
     cam_orthogonal = np.cross(cam_dir, cam_orthogonal_z)  # parallel to the camera screen
 
     # ball properties
-    ball_radius = 0.1143  # stadard radius of a football in meters; here covers 90% of normal gaussian
+    # ball_radius = 0.1143  # stadard radius of a football in meters; here covers 90% of normal gaussian
+    ball_radius = radius
 
     # sampling
     n = 5000
