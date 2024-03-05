@@ -1,6 +1,7 @@
-import numpy as np
-import pickle
 import os
+import pickle
+
+import numpy as np
 from tqdm import tqdm
 
 from bcnf.simulation.camera import record_trajectory
@@ -162,7 +163,7 @@ def generate_data(n: int = 100,
         if not accept_visibility(vis):
             rejected_count += 1
             continue
-
+        print(l)
         # add to list
         if type == 'render':
             # append cam1, cam2 and parameters
