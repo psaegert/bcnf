@@ -33,9 +33,9 @@ class TestCNFInvertibility(unittest.TestCase):
 
     def test_conditional_real_nvp(self) -> None:
         real_nvp = CondRealNVP(
-            input_size=self.input_size,
+            size=self.input_size,
             hidden_size=self.hidden_size,
-            blocks=5,
+            n_blocks=5,
             n_conditions=self.n_conditions,
             feature_network=None
         )
