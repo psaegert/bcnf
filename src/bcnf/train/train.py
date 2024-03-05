@@ -19,10 +19,12 @@ def train_CondRealNVP(
         X_train: torch.Tensor,
         y_train: torch.Tensor,
         n_epochs: int = 1,
-        val_loss_patience: float | None = None,
+        val_loss_patience: int | None = None,
+        val_loss_tolerance: float = 1e-4,
         X_val: torch.Tensor | None = None,
         y_val: torch.Tensor | None = None,
         batch_size: int = 16,
+        loss_history: dict[str, list[tuple[int | float, float]]] = None,
         verbose: bool = True) -> dict:
     """
     Train the model using the INN loss function
@@ -41,12 +43,16 @@ def train_CondRealNVP(
         The maximum number of epochs to train for
     val_loss_patience : float
         The number of epochs to wait before stopping if the validation loss does not decrease
+    val_loss_tolerance : float
+        The minimum decrease in validation loss to consider as an improvement
     X_val : torch.Tensor | None
         The validation data (parameters)
     y_val : torch.Tensor | None
         The validation conditions (simulation)
     batch_size : int
         The batch size to use
+    loss_history : dict[str, list] | None
+        The loss history to append to. If None, a new dictionary will be created.
     verbose : bool
         Whether to display a progress bar
 
@@ -69,10 +75,16 @@ def train_CondRealNVP(
     else:
         do_validate = False
 
-    loss_history: dict[str, list] = {
-        "train": [],
-        "val": []
-    }
+    if loss_history is None:
+        loss_history = {
+            "train": [],
+            "val": []
+        }
+    elif isinstance(loss_history, dict):
+        loss_history["train"] = []
+        loss_history["val"] = []
+        loss_history["lr"] = []
+        loss_history["early_stop_counter"] = []
 
     pbar = tqdm(range(n_epochs), disable=not verbose)
 
@@ -81,7 +93,7 @@ def train_CondRealNVP(
         model.train()
         train_loss = 0.0
 
-        for x, y in train_loader:
+        for i, (x, y) in enumerate(train_loader):
             # Reset the gradients
             optimizer.zero_grad()
 
@@ -94,17 +106,23 @@ def train_CondRealNVP(
             # Backpropagate
             loss.backward()
 
+            if loss > 1e5 or torch.isnan(loss):
+                print("Loss is too high or NaN. Skipping update.")
+                continue
+
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
             # Update the weights
             optimizer.step()
 
             # Add the loss to the total
             train_loss += loss.item()
 
+            # Add the loss to the history
+            loss_history["train"].append((epoch + i / len(train_loader), loss.item()))
+
         # Calculate the average loss
         train_loss /= len(train_loader)
-
-        # Add the loss to the history
-        loss_history["train"].append(train_loss)
 
         # Calculate the loss on the validation set
         if do_validate:
@@ -130,9 +148,13 @@ def train_CondRealNVP(
                 val_loss /= len(val_loader)
 
                 # Add the loss to the history
-                loss_history["val"].append(val_loss)
+                loss_history["val"].append((epoch + 1, loss.item()))
 
-            pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f} | lr: {optimizer.param_groups[0]['lr']:.2e} - Val*: {best_val_loss:.4f}")
+            # Add the learning rate and early stop counter to the history
+            loss_history["lr"].append((epoch + 1, optimizer.param_groups[0]['lr']))
+            loss_history["early_stop_counter"].append((epoch + 1, epoch - best_val_epoch))
+
+            pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f} | lr: {optimizer.param_groups[0]['lr']:.2e} - Val*: {best_val_loss:.4f} - Patience: {epoch - best_val_epoch}/{val_loss_patience}")
         else:
             pbar.set_description(f"Train: {train_loss:.4f}, lr: {optimizer.param_groups[0]['lr']:.2e}")
 
@@ -145,7 +167,7 @@ def train_CondRealNVP(
 
         # Check if the validation loss did not decrease in the last `val_loss_patience` epochs
         if do_validate and val_loss_patience is not None:
-            if val_loss < best_val_loss:
+            if val_loss < best_val_loss - val_loss_tolerance:
                 best_val_loss = val_loss
                 best_val_epoch = epoch
             elif (epoch - best_val_epoch) >= val_loss_patience:
