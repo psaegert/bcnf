@@ -48,7 +48,7 @@ def ballistic_ODE(v: np.ndarray = np.array([10, 10, 10]),   # velocity
                   a: np.ndarray = np.array([0, 0, 0])       # thrust
                   ) -> np.ndarray:
 
-    dvdt = g - (b / m) * (v**2 * v / np.linalg.norm(v) - w**2 * w / np.linalg.norm(w)) + a
+    dvdt = g - (0.5 * b / m) * (v**2 * v / np.linalg.norm(v) - w**2 * w / np.linalg.norm(w)) + a
 
     return dvdt
 
