@@ -163,7 +163,7 @@ def generate_data(n: int = 100,
         if not accept_visibility(vis):
             rejected_count += 1
             continue
-        print(l)
+
         # add to list
         if type == 'render':
             # append cam1, cam2 and parameters
@@ -245,5 +245,5 @@ def generate_data(n: int = 100,
 
     pbar.close()
 
-    with open(os.path.join(get_dir('data', 'bcnf_data', create=True), name + '.pkl'), 'wb') as f:
+    with open(os.path.join(get_dir('data', 'bcnf-data', create=True), name + '.pkl'), 'wb') as f:
         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
