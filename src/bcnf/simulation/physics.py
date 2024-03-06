@@ -92,8 +92,8 @@ def physics_ODE_simulation(x0: np.ndarray = np.array([0, 0, 1.8]),      # initia
 
 
 def get_data(
-        x0_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size),
-        v0_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size),
+        x0_pdf: Callable = lambda size: np.random.uniform(0, 10, size=size),
+        v0_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size) + np.array([0, 0, 9]),
         g_pdf: Callable = lambda size: np.random.normal(9.81, 0.1, size=size) * np.array([0, 0, -1]),
         w_pdf: Callable = lambda size: np.random.normal(0, 1, size=size) * np.array([1, 1, 0.1]),
         b_pdf: Callable = lambda size: np.random.uniform(0, 1, size=size),

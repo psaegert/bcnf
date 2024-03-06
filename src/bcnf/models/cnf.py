@@ -269,8 +269,6 @@ class CondRealNVP(ConditionalInvertibleLayer):
             The generated samples.
         """
 
-        print(f'{y.shape=}')
-
         y = y.to(self.device)
 
         if y.ndim == 1:
