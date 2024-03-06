@@ -3,7 +3,7 @@ import pandas as pd
 from bcnf.plots.core import BasePlot
 
 
-class DataConvariancePlot(BasePlot):
+class DataDistributionPlot(BasePlot):
     def __init__(self, data: pd.DataFrame):
         super().__init__(data)
 
