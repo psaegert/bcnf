@@ -27,7 +27,7 @@ class DataDistributionPlot(BasePlot):
             # Adjust y-axis
             if self.data[column].min() >= 0:
                 ax.set_xlim(left=0)  # If data is all >= 0, set lower limit to 0
-            if self.data[column].max() <= 0:
+            elif self.data[column].max() <= 0:
                 ax.set_xlim(right=0)  # If data is all <= 0, set upper limit to 0
             else:
                 upper = max(0,
