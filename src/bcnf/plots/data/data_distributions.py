@@ -8,18 +8,15 @@ class DataDistributionPlot(BasePlot):
     def __init__(self, data: pd.DataFrame):
         super().__init__(data)
 
-    def create_plot(self, bins: int = 50) -> None:
-        column_names = self.data.columns
-        columns_count = len(column_names)
-
-        rows = int(columns_count ** 0.5)
-        cols = int(columns_count / rows) + (columns_count % rows > 0)
+    def create_plots(self, bins: int = 50) -> None:
+        rows = int(self.columns_count // 5)
+        cols = int(self.columns_count / rows) + (self.columns_count % rows > 0)
 
         fig, axes = plt.subplots(nrows=rows,
                                  ncols=cols,
                                  figsize=(8, 2 * rows))
 
-        for i, column in enumerate(column_names):
+        for i, column in enumerate(self.column_names):
             ax = axes[i // cols, i % cols]
             ax.hist(self.data[column], bins=bins)
             ax.set_title(column)
@@ -40,5 +37,5 @@ class DataDistributionPlot(BasePlot):
         fig.text(0.02, 0.5, 'normalized counts', va='center', rotation='vertical', fontsize=12)
         plt.subplots_adjust(top=0.90, left=0.1, right=0.97, bottom=0.03)
 
-        self.fig = fig
+        self.figs.append(fig)
         plt.close(fig)
