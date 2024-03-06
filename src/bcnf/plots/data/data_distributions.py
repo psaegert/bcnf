@@ -5,10 +5,44 @@ from bcnf.plots.core import BasePlot
 
 
 class DataDistributionPlot(BasePlot):
+    """
+    DataDistributionPlot inherits from BasePlot
+
+    Class for creating plots for the distribution of the data.
+    One plot is created with several subplots, one for each column in the data.
+    Each subplot sonstitutes a histogram of the data in the corresponding column.
+
+    Attributes
+    ----------
+    None
+
+    Methods
+    -------
+    create_plots(bins: int = 50)
+        Creates the plots and stores them in the figs attribute
+    """
     def __init__(self, data: pd.DataFrame):
+        """
+        Parameters
+        ----------
+        data : pd.DataFrame
+            data that will be used to create the plots
+        """
         super().__init__(data)
 
     def create_plots(self, bins: int = 50) -> None:
+        """
+        Creates the plots and stores them in the figs attribute
+
+        Parameters
+        ----------
+        bins : int
+            Number of bins to use for the histograms
+
+        Returns
+        -------
+        None
+        """
         rows = int(self.columns_count // 5)
         cols = int(self.columns_count / rows) + (self.columns_count % rows > 0)
 

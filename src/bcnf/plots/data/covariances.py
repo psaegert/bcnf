@@ -5,14 +5,61 @@ from bcnf.plots.core import BasePlot
 
 
 class DataConvariancePlot(BasePlot):
+    """
+    DataConvariancePlot inherits from BasePlot
+
+    Class for creating plots for the covariance of the data.
+    As many plots are created as there are columns in the data.
+    Each plot consits of as many subplots as there are columns in the data.
+    A subplot is a 2D histograms of the data of a column pair.
+    One additional plot is created, which is the matrix of the covariance of the data.
+
+    Attributes
+    ----------
+    None
+
+    Methods
+    -------
+    create_plots(bins: int = 50)
+        Creates the plots and stores them in the figs attribute
+    """
     def __init__(self, data: pd.DataFrame):
+        """
+        Parameters
+        ----------
+        data : pd.DataFrame
+            data that will be used to create the plots
+        """
         super().__init__(data)
 
     def create_plots(self, bins: int = 50) -> None:
-        self.__create_covariance_plot()
-        self.__create_all_pairs_plot(bins)
+        """
+        Creates the plots and stores them in the figs attribute
 
-    def __create_covariance_plot(self) -> None:
+        Parameters
+        ----------
+        bins : int
+            Number of bins to use for the histograms
+
+        Returns
+        -------
+        None
+        """
+        self._create_covariance_plot()
+        self._create_all_pairs_plot(bins)
+
+    def _create_covariance_plot(self) -> None:
+        """
+        Creates the covariance plot and stores it in the figs attribute
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
         fig, ax = plt.subplots()
 
         ax.matshow(self.data.corr())
@@ -27,7 +74,19 @@ class DataConvariancePlot(BasePlot):
         self.figs.append(fig)
         plt.close(fig)
 
-    def __create_all_pairs_plot(self, bins: int = 50) -> None:
+    def _create_all_pairs_plot(self, bins: int = 50) -> None:
+        """
+        Creates the all pairs plots and stores it in the figs attribute
+
+        Parameters
+        ----------
+        bins : int
+            Number of bins to use for the histograms
+
+        Returns
+        -------
+        None
+        """
         rows = int(self.columns_count // 5)
         cols = int(self.columns_count / rows) + (self.columns_count % rows > 0)
 
