@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
+from bcnf.errors import TrainingDivergedError
 from bcnf.models import CondRealNVP
 
 
@@ -56,7 +57,7 @@ def train_CondRealNVP(
         The validation conditions (simulation)
     batch_size : int
         The batch size to use
-    loss_history : dict[str, list] | None
+    loss_history : dict[str, list[tuple[int | float, float]]] | None
         The loss history to append to. If None, a new dictionary will be created.
     verbose : bool
         Whether to display a progress bar
@@ -117,8 +118,7 @@ def train_CondRealNVP(
             loss.backward()
 
             if loss.item() > 1e5 or torch.isnan(loss).any():
-                print("Loss is too high or NaN. Skipping update.")
-                continue
+                raise TrainingDivergedError(f"Loss exploded to {loss.item()} at epoch {epoch + i / len(train_loader)}")
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
@@ -189,6 +189,9 @@ def train_CondRealNVP(
                 best_val_loss = val_loss_rolling_avg
                 best_val_epoch = epoch
             elif (epoch - best_val_epoch) >= val_loss_patience:
+                loss_history["stop_reason"] = "val_loss_plateau"  # type: ignore
                 break
+
+        loss_history["stop_reason"] = "max_epochs"  # type: ignore
 
     return loss_history

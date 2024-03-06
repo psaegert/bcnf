@@ -3,6 +3,7 @@ from typing import Type
 import torch
 from sklearn.model_selection import KFold
 
+from bcnf.errors import TrainingDivergedError
 from bcnf.models import ConditionalInvertibleLayer
 from bcnf.models.feature_network import FeatureNetwork
 from bcnf.train import train_CondRealNVP
@@ -27,7 +28,8 @@ def cross_validate(
         device: str = 'cpu',
         verbose: bool = True,
         shuffle: bool = False,
-        random_state: int | None = None) -> list[dict[str, dict[str, list] | float]]:
+        random_state: int | None = None,
+        errors: str = "raise") -> list[dict[str, dict[str, list] | float]]:
 
     # Move the data to the device
     X = X.to(device)
@@ -55,19 +57,27 @@ def cross_validate(
         lr_scheduler = lr_scheduler_class(optimizer, **lr_scheduler_kwargs)
 
         # Train the model
-        loss_history = train_CondRealNVP(
-            model=model,
-            optimizer=optimizer,
-            lr_scheduler=lr_scheduler,
-            X_train=X_train,
-            y_train=y_train,
-            n_epochs=n_epochs,
-            val_loss_patience=val_loss_patience,
-            val_loss_tolerance=val_loss_tolerance,
-            X_val=X_val,
-            y_val=y_val,
-            batch_size=batch_size,
-            verbose=verbose)
+        try:
+            loss_history = train_CondRealNVP(
+                model=model,
+                optimizer=optimizer,
+                lr_scheduler=lr_scheduler,
+                X_train=X_train,
+                y_train=y_train,
+                n_epochs=n_epochs,
+                val_loss_patience=val_loss_patience,
+                val_loss_tolerance=val_loss_tolerance,
+                X_val=X_val,
+                y_val=y_val,
+                batch_size=batch_size,
+                verbose=verbose)
+        except TrainingDivergedError as e:
+            print(f'Error in fold {i}: {e}')
+
+            if errors == "raise":
+                raise e
+            elif errors == "continue":
+                continue
 
         fold_metrics.append({
             'loss_history': loss_history,
