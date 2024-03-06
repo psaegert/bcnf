@@ -3,6 +3,7 @@ from abc import abstractmethod
 import numpy as np
 import torch
 import torch.nn as nn
+from tqdm import tqdm
 
 from bcnf.models.feature_network import FeatureNetwork
 
@@ -243,7 +244,19 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
         return z
 
-    def sample(self, n_samples: int, y: torch.Tensor, sigma: float = 1, outer: bool = False, verbose: bool = False) -> torch.Tensor:
+    def sample(self, n_samples: int, y: torch.Tensor, sigma: float = 1, outer: bool = False, batch_size: int = 100, output_device: str = "cpu", verbose: bool = False) -> torch.Tensor:
+        m_batch_sizes = [batch_size] * (n_samples // batch_size) + [n_samples % batch_size]
+        y_hat_list = []
+
+        with torch.no_grad():
+            for m in tqdm(m_batch_sizes, desc="Sampling", disable=not verbose):
+                y_hat_list.append(self._sample(m, y=y, outer=True, sigma=sigma, verbose=verbose).to(output_device))
+
+        y_hat = torch.cat(y_hat_list, dim=0)
+
+        return y_hat
+
+    def _sample(self, n_samples: int, y: torch.Tensor, sigma: float = 1, outer: bool = False, verbose: bool = False) -> torch.Tensor:
         """
         Sample from the model.
 
