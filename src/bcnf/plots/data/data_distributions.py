@@ -8,4 +8,4 @@ class DataDistributionPlot(BasePlot):
         super().__init__(data)
 
     def create_plot(self) -> None:
-        pass
+        print("Test")

@@ -1,3 +1,2 @@
-from . import core, data
-
-__all__ = ['core', 'data']
+from . import core
+from .data import *
