@@ -15,7 +15,9 @@ class DataDistributionPlot(BasePlot):
         rows = int(columns_count ** 0.5)
         cols = int(columns_count / rows) + (columns_count % rows > 0)
 
-        fig, axes = plt.subplots(nrows=rows, ncols=cols, figsize=(8, 2 * rows))
+        fig, axes = plt.subplots(nrows=rows,
+                                 ncols=cols,
+                                 figsize=(8, 2 * rows))
 
         for i, column in enumerate(column_names):
             ax = axes[i // cols, i % cols]
@@ -35,6 +37,8 @@ class DataDistributionPlot(BasePlot):
 
         plt.tight_layout()
         plt.suptitle("Distribution of parameters for generated data", fontsize=16)
-        fig.text(0.04, 0.5, 'counts', va='center', rotation='vertical', fontsize=12)
+        fig.text(0.02, 0.5, 'normalized counts', va='center', rotation='vertical', fontsize=12)
         plt.subplots_adjust(top=0.90, left=0.1, right=0.97, bottom=0.03)
-        plt.show()
+
+        self.fig = fig
+        plt.close(fig)
