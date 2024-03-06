@@ -1,5 +1,5 @@
 <h1 align="center">
-    <img style="width: 150px" src="bcnf_icon.png" alt="Icon">
+    <img style="width: 150px" src="./images/bcnf-icon.webp" alt="Icon">
 </h1>
 
 
