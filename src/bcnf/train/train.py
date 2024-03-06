@@ -1,3 +1,5 @@
+import datetime
+
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
@@ -82,13 +84,17 @@ def train_CondRealNVP(
     if loss_history is None:
         loss_history = {
             "train": [],
-            "val": []
+            "val": [],
+            "lr": [],
+            "early_stop_counter": [],
+            "time": []
         }
     elif isinstance(loss_history, dict):
         loss_history["train"] = []
         loss_history["val"] = []
         loss_history["lr"] = []
         loss_history["early_stop_counter"] = []
+        loss_history["time"] = []
 
     pbar = tqdm(range(n_epochs), disable=not verbose)
 
@@ -110,11 +116,11 @@ def train_CondRealNVP(
             # Backpropagate
             loss.backward()
 
-            if loss > 1e5 or torch.isnan(loss):
+            if loss.item() > 1e5 or torch.isnan(loss).any():
                 print("Loss is too high or NaN. Skipping update.")
                 continue
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
             # Update the weights
             optimizer.step()
@@ -124,6 +130,8 @@ def train_CondRealNVP(
 
             # Add the loss to the history
             loss_history["train"].append((epoch + i / len(train_loader), loss.item()))
+
+            loss_history["time"].append((epoch + i / len(train_loader), datetime.datetime.now().timestamp()))
 
         # Calculate the average loss
         train_loss /= len(train_loader)
