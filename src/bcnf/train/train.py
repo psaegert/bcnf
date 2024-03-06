@@ -184,7 +184,7 @@ def train_CondRealNVP(
         # Step the scheduler
         if lr_scheduler is not None:
             if isinstance(lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                lr_scheduler.step(val_loss)
+                lr_scheduler.step(val_loss_rolling_avg)
             else:
                 lr_scheduler.step()
 
