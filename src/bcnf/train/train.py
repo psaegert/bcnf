@@ -1,4 +1,5 @@
 import datetime
+import time
 
 import torch
 from torch.utils.data import DataLoader, TensorDataset
@@ -25,6 +26,7 @@ def train_CondRealNVP(
         val_loss_patience: int | None = None,
         val_loss_tolerance: float = 1e-4,
         val_loss_alpha: float = 0.95,
+        timeout: float | None = None,
         X_val: torch.Tensor | None = None,
         y_val: torch.Tensor | None = None,
         batch_size: int = 16,
@@ -51,6 +53,8 @@ def train_CondRealNVP(
         The minimum decrease in validation loss to consider as an improvement
     val_loss_alpha : float
         The exponential moving average factor for the validation loss
+    timeout : float
+        The maximum number of seconds to train for
     X_val : torch.Tensor | None
         The validation data (parameters)
     y_val : torch.Tensor | None
@@ -99,6 +103,8 @@ def train_CondRealNVP(
 
     pbar = tqdm(range(n_epochs), disable=not verbose)
 
+    start_time = time.time()
+
     # Train the model
     for epoch in pbar:
         model.train()
@@ -130,8 +136,6 @@ def train_CondRealNVP(
 
             # Add the loss to the history
             loss_history["train"].append((epoch + i / len(train_loader), loss.item()))
-
-            loss_history["time"].append((epoch + i / len(train_loader), datetime.datetime.now().timestamp()))
 
         # Calculate the average loss
         train_loss /= len(train_loader)
@@ -171,6 +175,7 @@ def train_CondRealNVP(
             # Add the learning rate and early stop counter to the history
             loss_history["lr"].append((epoch + 1, optimizer.param_groups[0]['lr']))
             loss_history["early_stop_counter"].append((epoch + 1, epoch - best_val_epoch))
+            loss_history["time"].append((epoch + 1, datetime.datetime.now().timestamp()))
 
             pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f} (avg: {val_loss_rolling_avg:.4f}, min: {best_val_loss:.4f}) | lr: {optimizer.param_groups[0]['lr']:.2e} - Patience: {epoch - best_val_epoch}/{val_loss_patience}")
         else:
@@ -190,8 +195,13 @@ def train_CondRealNVP(
                 best_val_epoch = epoch
             elif (epoch - best_val_epoch) >= val_loss_patience:
                 loss_history["stop_reason"] = "val_loss_plateau"  # type: ignore
-                break
+                return loss_history
 
-        loss_history["stop_reason"] = "max_epochs"  # type: ignore
+        # Check if the timeout has been reached
+        if timeout is not None and time.time() - start_time > timeout:
+            loss_history["stop_reason"] = "timeout"  # type: ignore
+            return loss_history
+
+    loss_history["stop_reason"] = "max_epochs"  # type: ignore
 
     return loss_history
