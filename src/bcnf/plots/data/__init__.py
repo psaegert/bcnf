@@ -1,2 +1,2 @@
-from .covariances import *
-from .data_distributions import *
+from .covariances import DataConvariancePlot  # noqa: F401
+from .data_distributions import DataDistributionPlot  # noqa: F401

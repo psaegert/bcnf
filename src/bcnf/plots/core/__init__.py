@@ -1,1 +1,1 @@
-from .base_plot import BasePlot
+from .base_plot import BasePlot  # noqa: F401
