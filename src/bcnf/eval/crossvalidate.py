@@ -22,7 +22,7 @@ def cross_validate(
         n_splits: int = 5,
         n_epochs: int = 1,
         val_loss_patience: float | None = None,
-        val_loss_tolerance: float = 1e-4,
+        val_loss_tolerance: float = 1e-3,
         batch_size: int = 64,
         device: str = 'cpu',
         verbose: bool = True,
