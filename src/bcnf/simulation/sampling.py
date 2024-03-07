@@ -2,24 +2,39 @@ import os
 import pickle
 
 import numpy as np
+from dynaconf import Dynaconf
 from tqdm import tqdm
 
 from bcnf.simulation.camera import record_trajectory
-from bcnf.simulation.physics import physics_ODE_simulation
+from bcnf.simulation.physics import calculate_point_of_impact, physics_ODE_simulation
 from bcnf.utils import get_dir
 
 
-def get_cams_position(cam_radiants: np.ndarray
+def sample_from_config(values: dict
+                       ) -> float:
+    distribution_type = values['distribution']
+    if distribution_type == 'uniform':
+        return np.random.uniform(values.get('min'), values.get('max'))
+    elif distribution_type == 'gaussian':
+        return np.random.normal(0, 1)  # mean and std are used as parameters for the standard normal distribution later
+    elif distribution_type == 'gamma':
+        return np.random.gamma(values.get('shape'), values.get('scale'))
+    else:
+        raise ValueError(f'Unknown distribution type: {distribution_type}')
+
+
+def get_cams_position(cam_radiants: np.ndarray,
+                      camera_circle_radius: float = 25
                       ) -> list[np.ndarray]:
     cams = []
     for cam in cam_radiants:
-        cams.append(np.array([-25 * np.cos(cam), 25 * np.sin(cam), 1.5]))
+        cams.append(np.array([-camera_circle_radius * np.cos(cam), camera_circle_radius * np.sin(cam), 1.5]))
     return cams
 
 
 def accept_visibility(visibility: float
                       ) -> bool:
-    # assuming uniform visibility distribution: acceptance rate of ~50 %
+    # assuming uniform visibility distribution between 0 and 1: acceptance rate of ~50 %
     if visibility > 0.75:
         return True
     elif 1 / (1 + np.exp(-(visibility - 0.5) * 10)) > np.random.uniform(0, 1):  # modified sigmoid
@@ -28,60 +43,55 @@ def accept_visibility(visibility: float
         return False
 
 
-def sample_ballistic_parameters(num_cams: int = 2
+def accept_traveled_distance(distance: float,
+                             ) -> bool:
+    # assuming uniform distance distribution between 0 m and 50 m: acceptance rate of ~70 %
+    ratio = distance / 50  # 50 m is just a base reference (diameter of the camera circle)
+    if ratio > 0.75:
+        return True
+    elif np.sqrt(ratio) > np.random.uniform(0, 1):  # square root acceptance
+        return True
+    else:
+        return False
+
+
+def sample_ballistic_parameters(num_cams: int = 2,
+                                cfg_file: str = f'{get_dir()}/configs/config.yaml'
                                 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, float, np.ndarray, np.ndarray, float, float, float, float]:
+    config = Dynaconf(settings_files=[cfg_file])
+
     # pos
-    r_x = np.sqrt(np.random.uniform(0, 1)) * 40           # 40 m, i.e. can stand in- and outside the camera circle
+    r_x = np.sqrt(np.abs(sample_from_config(config['x0']['x0_xy']))) * config['x0']['x0_xy']['std'] + config['x0']['x0_xy']['mean']
     phi = np.random.uniform(0, 2 * np.pi)
 
     x0_x = r_x * np.cos(phi)
     x0_y = r_x * np.sin(phi)
-    x0_z = np.random.uniform(1, 2)                      # 1 - 2 m above ground as normal human height
+    x0_z = sample_from_config(config['x0']['x0_z']) * config['x0']['x0_z']['std'] + config['x0']['x0_z']['mean']
 
     x0 = np.array([x0_x, x0_y, x0_z])
 
     # velo
-    r_v = np.sqrt(np.random.uniform(0, 1)) * 25         # 25 m/s; 90km/h is possbible for a human throw
+    r_v = np.sqrt(np.abs(sample_from_config(config['v0']['v0_xy']))) * config['v0']['v0_xy']['std'] + config['v0']['v0_xy']['mean']
     phi_v = np.random.uniform(0, 2 * np.pi)
 
     v0_x = r_v * np.cos(phi_v)
     v0_y = r_v * np.sin(phi_v)
-    v0_z = np.random.uniform(-25, 25)                   # bomb it down to the ground or up to the sky
+    v0_z = sample_from_config(config['v0']['v0_z']) * config['v0']['v0_z']['std'] + config['v0']['v0_z']['mean']
 
     v0 = np.array([v0_x, v0_y, v0_z])
 
-    # grav
-    g_z = np.random.uniform(-0.08 * 9.81, -2.5 * 9.81)  # from ~0.779 m/s^2 up to ~24.79 m/s^2 (Triton to Jupiter)
-
-    g = np.array([0, 0, g_z])
-
     # wind
-    r_x = np.sqrt(np.random.uniform(0, 1)) * 20         # includes up to the definition of "stürmischer Wind" (https://de.wikipedia.org/wiki/Windgeschwindigkeit)
-    phi_x = np.random.uniform(0, 2 * np.pi)
+    r_x = np.sqrt(np.abs(sample_from_config(config['w']['w_xy']))) * config['w']['w_xy']['std'] + config['w']['w_xy']['mean']
+    phi_w = np.random.uniform(0, 2 * np.pi)
 
-    w_x = r_x * np.cos(phi_x)
-    w_y = r_x * np.sin(phi_x)
-    w_z = np.random.uniform(-10, 10)
+    w_x = r_x * np.cos(phi_w)
+    w_y = r_x * np.sin(phi_w)
+    w_z = sample_from_config(config['w']['w_z']) * config['w']['w_z']['std'] + config['w']['w_z']['mean']
 
     w = np.array([w_x, w_y, w_z])
 
-    # b
-    # density of atmosphere
-    rho = np.random.uniform(0, 1.5)                     # excluding venus with insane 67 kg/m^3...
-
-    # area of thown object
-    A = np.random.uniform(0.003, 0.15)                  # from a small ball (3 cm radius) to a big ball (20 cm radius)
-
-    # drag coefficient
-    Cd = np.random.uniform(0.04, 1.42)                  # reference for 3D objects (https://en.wikipedia.org/wiki/Drag_coefficient)
-
-    b = rho * A * Cd                                    # b
-
-    # mass
-    m = np.random.uniform(0.056, 0.62)                  # from a tennis ball (56 g) to a basketball (620 g)
-
     # thrust
-    r_a = np.cbrt(np.random.uniform(0, 1)) * 5         # 5 m/s^2 thrust at max in any direction
+    r_a = np.cbrt(np.abs(sample_from_config(config['a']))) * config['a']['std'] + config['a']['mean']
     phi_a = np.random.uniform(0, 2 * np.pi)
     theta_a = np.random.uniform(0, np.pi)
 
@@ -91,13 +101,33 @@ def sample_ballistic_parameters(num_cams: int = 2
 
     a = np.array([a_x, a_y, a_z])
 
+    # grav
+    g_z = sample_from_config(config['g'])
+
+    g = np.array([0, 0, -g_z])
+
+    # b
+    # density of atmosphere
+    rho = sample_from_config(config['rho'])
+
+    # radus of ball
+    r = sample_from_config(config['r_ball'])
+
+    # area of thown object
+    A = np.pi * r**2
+
+    # drag coefficient
+    Cd = sample_from_config(config['Cd'])
+
+    b = rho * A * Cd
+
+    # mass
+    m = sample_from_config(config['m'])
+
     # second cam position
-    l_array = np.random.uniform(0, 2 * np.pi, size=(num_cams - 1))
+    cam_radian_array = [sample_from_config(config['cam_radian']) for _ in range(num_cams - 1)]
 
-    # average radius of ball
-    r = (A / np.pi)**0.5
-
-    return x0, v0, g, w, b, m, a, l_array, r, A, Cd, rho
+    return x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho
 
 
 def generate_data(n: int = 100,
@@ -106,11 +136,14 @@ def generate_data(n: int = 100,
                   T: float = 3,
                   ratio: tuple = (16, 9),
                   fov_horizontal: float = 70.0,
-                  cam1_pos: np.ndarray = np.array([-25, 0, 1.5]),
+                  cam1_pos: float = 0.0,
                   print_acc_rej: bool = False,
                   name: str = 'data',
-                  num_cams: int = 2
+                  num_cams: int = 2,
+                  config_file: str = f'{get_dir()}/configs/config.yaml',
+                  camera_circle_radius: float = 25
                   ) -> None:
+    cam1_pos = np.array([cam1_pos])
     pbar = tqdm(total=n)
 
     accepted_count = 0
@@ -137,22 +170,35 @@ def generate_data(n: int = 100,
         'a_x': [],
         'a_y': [],
         'a_z': [],
-        'l': [],
+        'cam_radian': [],
         'r': []
     }
 
     while accepted_count < n:
-        x0, v0, g, w, b, m, a, l, r, A, Cd, rho = sample_ballistic_parameters(num_cams=num_cams)
+        x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho = sample_ballistic_parameters(num_cams=num_cams, cfg_file=config_file)
 
         # first check: will the ball actually come down again?
         if g[2] + a[2] > 0:
             rejected_count += 1
             continue
 
-        # second check: in how many frames is the ball visible?
+        # second check: is x0_z > 0?
+        if x0[2] < 0:
+            rejected_count += 1
+            continue
+
+        # third check: how far does the ball travel?
+        poi = calculate_point_of_impact(x0, v0, g, w, b, m, a)
+        distance = np.linalg.norm(poi - x0)
+
+        if not accept_traveled_distance(distance):
+            rejected_count += 1
+            continue
+
+        # last check: in how many frames is the ball visible?
         traj = physics_ODE_simulation(x0, v0, g, w, b, m, a, T, SPF)
-        l_array = np.concatenate([cam1_pos, l])
-        cams_pos = get_cams_position(l_array)
+        cam_radian_array = np.concatenate([cam1_pos, cam_radian_array])
+        cams_pos = get_cams_position(cam_radian_array, camera_circle_radius)
 
         cams = []
         for cam in cams_pos:
@@ -187,7 +233,7 @@ def generate_data(n: int = 100,
             data['a_x'].append(a[0])
             data['a_y'].append(a[1])
             data['a_z'].append(a[2])
-            data['l'].append(l)
+            data['cam_radian'].append(cam_radian_array[1:])
             data['r'].append(r)
 
         elif type == 'parameters':
@@ -209,7 +255,7 @@ def generate_data(n: int = 100,
             data['a_x'].append(a[0])
             data['a_y'].append(a[1])
             data['a_z'].append(a[2])
-            data['l'].append(l)
+            data['cam_radian'].append(cam_radian_array[1:])
             data['r'].append(r)
 
         elif type == 'trajectory':
@@ -232,16 +278,20 @@ def generate_data(n: int = 100,
             data['a_x'].append(a[0])
             data['a_y'].append(a[1])
             data['a_z'].append(a[2])
-            data['l'].append(l)
+            data['cam_radian'].append(cam_radian_array[1:])
             data['r'].append(r)
         else:
             raise ValueError('type must be one of "render", "trajectory", or "parameters"')
 
         accepted_count += 1
 
+        if accepted_count % 100 == 0:
+            with open(os.path.join(get_dir('data', 'bcnf-data', create=True), name + '.pkl'), 'wb') as f:
+                pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
+
         pbar.update(1)
         if print_acc_rej:
-            pbar.set_postfix(accepted=accepted_count, rejected=rejected_count)
+            pbar.set_postfix(accepted=accepted_count, rejected=rejected_count, ratio=accepted_count / (accepted_count + rejected_count))
 
     pbar.close()
 
