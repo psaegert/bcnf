@@ -25,6 +25,7 @@ def train_CondRealNVP(
         n_epochs: int = 1,
         val_loss_patience: int | None = None,
         val_loss_tolerance: float = 1e-4,
+        val_loss_tolerance_mode: str = "rel",
         val_loss_alpha: float = 0.95,
         timeout: float | None = None,
         X_val: torch.Tensor | None = None,
@@ -51,6 +52,8 @@ def train_CondRealNVP(
         The number of epochs to wait before stopping if the validation loss does not decrease
     val_loss_tolerance : float
         The minimum decrease in validation loss to consider as an improvement
+    val_loss_tolerance_mode : str
+        The mode to use for the tolerance (either 'rel' or 'abs')
     val_loss_alpha : float
         The exponential moving average factor for the validation loss
     timeout : float
@@ -71,6 +74,9 @@ def train_CondRealNVP(
     dict
         The final loss history
     """
+    if val_loss_tolerance_mode not in ["rel", "abs"]:
+        raise ValueError("val_loss_tolerance_mode must be either 'rel' or 'abs'")
+
     # Create the dataloader
     datasetTrain = TensorDataset(X_train, y_train)
     train_loader = DataLoader(datasetTrain, batch_size=batch_size, shuffle=True)
@@ -190,10 +196,16 @@ def train_CondRealNVP(
 
         # Check if the validation loss did not decrease in the last `val_loss_patience` epochs
         if do_validate and val_loss_patience is not None and val_loss_rolling_avg is not None:
-            if val_loss_rolling_avg < best_val_loss - val_loss_tolerance:
-                best_val_loss = val_loss_rolling_avg
-                best_val_epoch = epoch
-            elif (epoch - best_val_epoch) >= val_loss_patience:
+            if val_loss_tolerance_mode == "rel":
+                if val_loss_rolling_avg < best_val_loss * (1 - val_loss_tolerance):
+                    best_val_loss = val_loss_rolling_avg
+                    best_val_epoch = epoch
+            elif val_loss_tolerance_mode == "abs":
+                if val_loss_rolling_avg < best_val_loss - val_loss_tolerance:
+                    best_val_loss = val_loss_rolling_avg
+                    best_val_epoch = epoch
+
+            if (epoch - best_val_epoch) >= val_loss_patience:
                 loss_history["stop_reason"] = "val_loss_plateau"  # type: ignore
                 return loss_history
 
