@@ -57,7 +57,7 @@ def accept_traveled_distance(distance: float,
 
 def sample_ballistic_parameters(num_cams: int = 2,
                                 cfg_file: str = f'{get_dir()}/configs/config.yaml'
-                                ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, float, np.ndarray, np.ndarray, float, float, float, float]:
+                                ) -> tuple:
     config = Dynaconf(settings_files=[cfg_file])
 
     # pos
@@ -127,7 +127,13 @@ def sample_ballistic_parameters(num_cams: int = 2,
     # second cam position
     cam_radian_array = [sample_from_config(config['cam_radian']) for _ in range(num_cams - 1)]
 
-    return x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho
+    # cam radius
+    cam_radius = sample_from_config(config['cam_radius'])
+
+    # cam_angles
+    cam_angles = [sample_from_config(config['cam_angle']) for _ in range(num_cams)]
+
+    return x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho, cam_radius, cam_angles
 
 
 def generate_data(n: int = 100,
@@ -141,7 +147,6 @@ def generate_data(n: int = 100,
                   name: str = 'data',
                   num_cams: int = 2,
                   config_file: str = f'{get_dir()}/configs/config.yaml',
-                  camera_circle_radius: float = 25
                   ) -> None:
     cam1_pos = np.array([cam1_pos])
     pbar = tqdm(total=n)
@@ -171,11 +176,13 @@ def generate_data(n: int = 100,
         'a_y': [],
         'a_z': [],
         'cam_radian': [],
-        'r': []
+        'r': [],
+        'cam_radius': [],
+        'cam_angles': []
     }
 
     while accepted_count < n:
-        x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho = sample_ballistic_parameters(num_cams=num_cams, cfg_file=config_file)
+        x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho, cam_radius, cam_angles = sample_ballistic_parameters(num_cams=num_cams, cfg_file=config_file)
 
         # first check: will the ball actually come down again?
         if g[2] + a[2] > 0:
@@ -198,11 +205,11 @@ def generate_data(n: int = 100,
         # last check: in how many frames is the ball visible?
         traj = physics_ODE_simulation(x0, v0, g, w, b, m, rho, r, a, T, SPF)
         cam_radian_array = np.concatenate([cam1_pos, cam_radian_array])
-        cams_pos = get_cams_position(cam_radian_array, camera_circle_radius)
+        cams_pos = get_cams_position(cam_radian_array, cam_radius)
 
         cams = []
-        for cam in cams_pos:
-            cams.append(record_trajectory(traj, ratio, fov_horizontal, cam, make_gif=False, radius=r))
+        for cam, angle in zip(cams_pos, cam_angles):
+            cams.append(record_trajectory(traj, ratio, fov_horizontal, cam, make_gif=False, radius=r, viewing_angle=angle))
 
         vis = np.sum([np.sum(cam) for cam in cams]) / (len(cams) * len(cams[0]))
 
@@ -233,8 +240,10 @@ def generate_data(n: int = 100,
             data['a_x'].append(a[0])
             data['a_y'].append(a[1])
             data['a_z'].append(a[2])
-            data['cam_radian'].append(cam_radian_array[1:])
+            data['cam_radian'].append(cam_radian_array)
             data['r'].append(r)
+            data['cam_radius'].append(cam_radius)
+            data['cam_angles'].append(cam_angles)
 
         elif type == 'parameters':
             data['x0_x'].append(x0[0])
@@ -255,8 +264,10 @@ def generate_data(n: int = 100,
             data['a_x'].append(a[0])
             data['a_y'].append(a[1])
             data['a_z'].append(a[2])
-            data['cam_radian'].append(cam_radian_array[1:])
+            data['cam_radian'].append(cam_radian_array)
             data['r'].append(r)
+            data['cam_radius'].append(cam_radius)
+            data['cam_angles'].append(cam_angles)
 
         elif type == 'trajectory':
             data['traj'].append(traj)
@@ -278,8 +289,10 @@ def generate_data(n: int = 100,
             data['a_x'].append(a[0])
             data['a_y'].append(a[1])
             data['a_z'].append(a[2])
-            data['cam_radian'].append(cam_radian_array[1:])
+            data['cam_radian'].append(cam_radian_array)
             data['r'].append(r)
+            data['cam_radius'].append(cam_radius)
+            data['cam_angles'].append(cam_angles)
         else:
             raise ValueError('type must be one of "render", "trajectory", or "parameters"')
 

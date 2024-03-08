@@ -71,7 +71,7 @@ r_ball:
   min:  0.03      # only for uniform
   max:  0.2       # only for uniform
   shape:  3       # only for gaussian
-  scale: 0.05    # only for gaussian
+  scale: 0.05     # only for gaussian
 
 Cd:
   distribution: 'gamma'  # 'gamma' or 'uniform'
@@ -82,12 +82,26 @@ Cd:
 
 m:
   distribution: 'gamma'  # 'gamma' or 'uniform'
-  min:  0.056       # only for uniform
+  min:  0.056      # only for uniform
   max:  0.62       # only for uniform
-  shape:  2       # only for gamma
+  shape:  2        # only for gamma
   scale:  0.15     # only for gamma
 
 cam_radian:
   distribution: 'uniform'
   min:  0
   max:  6.283185307
+
+cam_radius:
+  distribution: 'gamma' # 'gamma' or 'uniform'
+  min:  10        # only for uniform
+  max:  50        # only for uniform
+  shape:  3.5     # only for gamma
+  scale:  6       # only for gamma
+
+cam_angle:
+  distribution: 'gamma' # 'gamma' or 'uniform'
+  min:  0        # only for uniform
+  max:  65       # only for uniform
+  shape:  3      # only for gamma
+  scale:  10     # only for gamma
