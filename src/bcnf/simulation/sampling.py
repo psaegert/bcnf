@@ -188,7 +188,7 @@ def generate_data(n: int = 100,
             continue
 
         # third check: how far does the ball travel?
-        poi = calculate_point_of_impact(x0, v0, g, w, b, m, a)
+        poi = calculate_point_of_impact(x0, v0, g, w, b, m, rho, r, a)
         distance = np.linalg.norm(poi - x0)
 
         if not accept_traveled_distance(distance):
@@ -196,7 +196,7 @@ def generate_data(n: int = 100,
             continue
 
         # last check: in how many frames is the ball visible?
-        traj = physics_ODE_simulation(x0, v0, g, w, b, m, a, T, SPF)
+        traj = physics_ODE_simulation(x0, v0, g, w, b, m, rho, r, a, T, SPF)
         cam_radian_array = np.concatenate([cam1_pos, cam_radian_array])
         cams_pos = get_cams_position(cam_radian_array, camera_circle_radius)
 
