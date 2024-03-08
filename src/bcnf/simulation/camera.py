@@ -2,6 +2,30 @@ import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 
+from bcnf.utils import get_dir
+
+
+def rotate_vector(vector: np.ndarray,
+                  angle_degrees: float = 45  # angle [+45 upwards and -45 downwards]
+                  ) -> np.ndarray:
+    # Convert angle from degrees to radians
+    angle_radians = angle_degrees * np.pi / 180
+
+    # tranfor vector to spherical coorinates
+    r = np.linalg.norm(vector)
+    theta = np.arccos(vector[2] / r)
+    phi = np.arctan2(vector[1], vector[0])
+
+    # Update the spherical coordinates
+    theta -= angle_radians
+
+    # Transform the spherical coordinates back to Cartesian coordinates
+    rotated_vector = np.array([r * np.sin(theta) * np.cos(phi),
+                               r * np.sin(theta) * np.sin(phi),
+                               r * np.cos(theta)])
+
+    return rotated_vector
+
 
 def record_trajectory(trajectory: np.ndarray = np.array([[0, 0, 0]]),
                       ratio: tuple = (16, 9),
@@ -9,7 +33,8 @@ def record_trajectory(trajectory: np.ndarray = np.array([[0, 0, 0]]),
                       cam_pos: np.ndarray = np.array([-25, 0, 1.5]),
                       make_gif: bool = True,
                       gif_name: str = 'trajectory',
-                      radius: float = 0.1143
+                      radius: float = 0.1143,
+                      viewing_angle: float = 0.0
                       ) -> np.ndarray:
     aspect_ratio = ratio[0] / ratio[1]
 
@@ -25,7 +50,8 @@ def record_trajectory(trajectory: np.ndarray = np.array([[0, 0, 0]]),
             ratio=ratio,
             fov_horizontal=fov_horizontal,
             cam_pos=cam_pos,
-            radius=radius
+            radius=radius,
+            viewing_angle=viewing_angle
         )
         film.append(img)
 
@@ -40,8 +66,8 @@ def record_trajectory(trajectory: np.ndarray = np.array([[0, 0, 0]]),
         for i in range(trajectory.shape[0]):
             gif.append([ax.imshow(film[i], extent=[-phi, phi, -theta, theta], cmap='hot', animated=True)])
 
-        ani = animation.ArtistAnimation(fig, gif, interval=100, blit=True, repeat_delay=3000)
-        ani.save(f'tests/gifs/{gif_name}.gif', writer='imagemagick')
+        ani = animation.ArtistAnimation(fig, gif, interval=33, blit=True, repeat_delay=3000)
+        ani.save(f'{get_dir()}/tests/gifs/{gif_name}.gif', writer='imagemagick')
     return film
 
 
@@ -50,7 +76,8 @@ def camera(ball_pos: np.ndarray = np.array([0, 0, 1.5]),
            fov_horizontal: float = 70.0,
            cam_pos: np.ndarray = np.array([-25, 0, 1.5]),
            show_plot: bool = False,
-           radius: float = 0.1143
+           radius: float = 0.1143,
+           viewing_angle: float = 0.0
            ) -> np.ndarray:
     # ratio
     aspect_ratio = ratio[0] / ratio[1]
@@ -61,10 +88,20 @@ def camera(ball_pos: np.ndarray = np.array([0, 0, 1.5]),
     theta = (fov_vertical / 2) * (np.pi / 180)
 
     # calculate camera vectors
-    focus_point = np.array([0, 0, 1.5])  # where is the camera looking at
+    focus_point = np.array([0, 0, cam_pos[2]])  # where is the camera looking at
 
+    '''
     cam_dir = (focus_point - cam_pos) / np.linalg.norm(focus_point - cam_pos)  # normalized vector of camera orientation
     cam_orthogonal_z = np.array([0, 0, 1])  # z-axis of the camera, here always upwards
+    cam_orthogonal = np.cross(cam_dir, cam_orthogonal_z)  # parallel to the camera screen
+    '''
+
+    # calculate normalized camera looking direction
+    cam_dir = (focus_point - cam_pos) / np.linalg.norm(focus_point - cam_pos)  # normalized vector of camera orientation
+    # rotate according to angle
+    cam_dir = rotate_vector(cam_dir, viewing_angle)
+    # calculate orthogonal vector with x and y remaining the same, aka rotate 90 upwards
+    cam_orthogonal_z = rotate_vector(cam_dir, 90)
     cam_orthogonal = np.cross(cam_dir, cam_orthogonal_z)  # parallel to the camera screen
 
     # ball properties
