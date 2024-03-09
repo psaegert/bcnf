@@ -5,7 +5,7 @@ x0:
     min:  0     # only for uniform
     max:  40    # only for uniform
     mean: 0     # only for gaussian
-    std:  25    # only for gaussian
+    std:  30    # only for gaussian
   x0_z:
     distribution: 'gaussian'  # 'gaussian' or 'uniform'
     min:  1     # only for uniform
@@ -97,7 +97,7 @@ cam_radius:
   min:  10        # only for uniform
   max:  50        # only for uniform
   shape:  3.5     # only for gamma
-  scale:  6       # only for gamma
+  scale:  8       # only for gamma
 
 cam_angle:
   distribution: 'gamma' # 'gamma' or 'uniform'

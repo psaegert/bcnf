@@ -1,7 +1,20 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 from bcnf.plots.core import BasePlot
+
+
+# custom function for covariance coefficients (standard df.corr() ignores arrays filled with 0s, wich we do have)
+def cov_coeff(a: np.ndarray,
+              b: np.ndarray) -> float:
+    # if a or b is only zeros, return 0
+    if np.all(a == 0) and np.all(b == 0):
+        return 1
+    elif np.all(a == 0) or np.all(b == 0):
+        return 0
+    else:
+        return np.corrcoef(a, b)[0, 1]
 
 
 class DataConvariancePlot(BasePlot):
@@ -62,7 +75,7 @@ class DataConvariancePlot(BasePlot):
         """
         fig, ax = plt.subplots()
 
-        ax.matshow(self.data.corr())
+        ax.matshow(self.data.corr(method=cov_coeff))
         ax.set_xticks(range(self.data.shape[1]))
         ax.set_xticklabels(self.data.columns, rotation=90)
         ax.set_yticks(range(self.data.shape[1]))
