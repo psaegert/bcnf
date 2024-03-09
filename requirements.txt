@@ -1,5 +1,7 @@
+dynaconf
 matplotlib
 numpy
+opencv-python
 pandas
 scikit-learn
 scikit-optimize
