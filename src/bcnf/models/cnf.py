@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import Type
 
 import numpy as np
 import torch
@@ -35,25 +36,35 @@ class ConditionalInvertibleLayer(nn.Module):
 
 
 class ConditionalNestedNeuralNetwork(nn.Module):
-    def __init__(self, input_size: int, output_size: int, hidden_size: int, n_conditions: int, dropout: float = 0.2, device: str = "cpu") -> None:
+    def __init__(self, sizes: list[int], n_conditions: int, activation: Type[nn.Module] = nn.GELU, dropout: float = 0.0, device: str = "cpu") -> None:
         super(ConditionalNestedNeuralNetwork, self).__init__()
 
         self.n_conditions = n_conditions
 
-        self.layers = nn.Sequential(
-            nn.Linear(input_size + n_conditions, hidden_size),
-            nn.Dropout(dropout),
-            nn.GELU(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.Dropout(dropout),
-            nn.GELU(),
-            nn.Linear(hidden_size, output_size * 2)
-        ).to(device)
+        self.nn = nn.Sequential()
+
+        if len(sizes) < 2:
+            # No transformations from one layer to another, use identity (0 layers)
+            self.nn.append(nn.Identity())
+        else:
+            # Add the conditions to the input
+            sizes[0] += n_conditions
+
+            # Account for splitting the output into t and s
+            sizes[-1] *= 2
+
+            for i in range(len(sizes) - 2):
+                self.nn.append(nn.Linear(sizes[i], sizes[i + 1]))
+                self.nn.append(activation())
+                if dropout > 0.0:
+                    self.nn.append(nn.Dropout(dropout))
+
+            self.nn.append(nn.Linear(sizes[-2], sizes[-1]))
 
     def to(self, device: str) -> "ConditionalNestedNeuralNetwork":  # type: ignore
         super().to(device)
         self.device = device
-        self.layers.to(device)
+        self.nn.to(device)
 
         return self
 
@@ -63,14 +74,14 @@ class ConditionalNestedNeuralNetwork(nn.Module):
             x = torch.cat([x, y], dim=1)
 
         # Get the translation coefficients t and the scale coefficients s from the neural network
-        t, s = self.layers(x).chunk(2, dim=1)
+        t, s = self.nn.forward(x).chunk(2, dim=1)
 
         # Return the coefficients
         return t, torch.tanh(s)
 
 
 class ConditionalAffineCouplingLayer(ConditionalInvertibleLayer):
-    def __init__(self, input_size: int, hidden_size: int, n_conditions: int, dropout: float = 0.2, device: str = "cpu") -> None:
+    def __init__(self, input_size: int, nested_sizes: list[int], n_conditions: int, dropout: float = 0.0, device: str = "cpu") -> None:
         super(ConditionalAffineCouplingLayer, self).__init__()
 
         self.n_conditions = n_conditions
@@ -78,9 +89,7 @@ class ConditionalAffineCouplingLayer(ConditionalInvertibleLayer):
 
         # Create the nested neural network
         self.nn = ConditionalNestedNeuralNetwork(
-            input_size=np.ceil(input_size / 2).astype(int),
-            output_size=np.floor(input_size / 2).astype(int),
-            hidden_size=hidden_size,
+            sizes=[int(np.ceil(input_size / 2))] + nested_sizes + [int(np.floor(input_size / 2))],
             n_conditions=n_conditions,
             dropout=dropout,
             device=device)
@@ -168,7 +177,7 @@ class ActNorm(InvertibleLayer):
 
 
 class CondRealNVP(ConditionalInvertibleLayer):
-    def __init__(self, size: int, hidden_size: int, n_blocks: int, n_conditions: int, feature_network: FeatureNetwork | None, dropout: float = 0.0, act_norm: bool = False, device: str = "cpu"):
+    def __init__(self, size: int, nested_sizes: list[int], n_blocks: int, n_conditions: int, feature_network: FeatureNetwork | None, dropout: float = 0.0, act_norm: bool = False, device: str = "cpu"):
         super(CondRealNVP, self).__init__()
 
         if n_conditions == 0 or feature_network is None:
@@ -177,7 +186,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
             self.h = feature_network
 
         self.size = size
-        self.hidden_size = hidden_size
+        self.nested_sizes = nested_sizes
         self.n_blocks = n_blocks
         self.n_conditions = n_conditions
         self.device = device
@@ -189,11 +198,11 @@ class CondRealNVP(ConditionalInvertibleLayer):
         for _ in range(self.n_blocks - 1):
             if act_norm:
                 self.layers.append(ActNorm(self.size))
-            self.layers.append(ConditionalAffineCouplingLayer(self.size, self.hidden_size, self.n_conditions, dropout=self.dropout, device=self.device))
+            self.layers.append(ConditionalAffineCouplingLayer(self.size, self.nested_sizes, self.n_conditions, dropout=self.dropout, device=self.device))
             self.layers.append(OrthonormalTransformation(self.size))
 
         # Add the final affine coupling layer
-        self.layers.append(ConditionalAffineCouplingLayer(self.size, self.hidden_size, self.n_conditions, dropout=self.dropout, device=self.device))
+        self.layers.append(ConditionalAffineCouplingLayer(self.size, self.nested_sizes, self.n_conditions, dropout=self.dropout, device=self.device))
 
     def to(self, device: str) -> "CondRealNVP":  # type: ignore
         super().to(device)
