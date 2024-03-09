@@ -50,7 +50,7 @@ def compute_CDF_residuals(
         y_hat_all_sorted_ranks: torch.Tensor,
         M_samples: int,
         t_divisions: int = 100,
-        sigma: float = 1) -> tuple[np.ndarray, np.ndarray]:
+        sigma: float = 1) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
     N_samples = y_hat_all_sorted_ranks.shape[0]
 
@@ -66,4 +66,4 @@ def compute_CDF_residuals(
 
     confidence_interval = brownian_confidence_interval(t_linspace)
 
-    return scaled_residuals, confidence_interval
+    return t_linspace, scaled_residuals, confidence_interval

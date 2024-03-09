@@ -136,20 +136,21 @@ def sample_ballistic_parameters(num_cams: int = 2,
     return x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho, cam_radius, cam_angles
 
 
-def generate_data(n: int = 100,
-                  type: str = 'parameters',  # 'render', 'trajectory', or 'parameters'
-                  SPF: float = 1 / 30,
-                  T: float = 3,
-                  ratio: tuple = (16, 9),
-                  fov_horizontal: float = 70.0,
-                  cam1_pos: float = 0.0,
-                  print_acc_rej: bool = False,
-                  name: str = 'data',
-                  num_cams: int = 2,
-                  config_file: str = f'{get_dir()}/configs/config.yaml',
-                  ) -> None:
+def generate_data(
+        n: int = 100,
+        type: str = 'parameters',  # 'render', 'trajectory', or 'parameters'
+        SPF: float = 1 / 30,
+        T: float = 3,
+        ratio: tuple = (16, 9),
+        fov_horizontal: float = 70.0,
+        cam1_pos: float = 0.0,
+        print_acc_rej: bool = False,
+        name: str | None = None,
+        num_cams: int = 2,
+        config_file: str = f'{get_dir()}/configs/config.yaml',
+        break_on_impact: bool = True,
+        verbose: bool = False) -> dict[str, list]:
     cam1_pos = np.array([cam1_pos])
-    pbar = tqdm(total=n)
 
     accepted_count = 0
     rejected_count = 0
@@ -181,6 +182,8 @@ def generate_data(n: int = 100,
         'cam_angles': []
     }
 
+    pbar = tqdm(total=n, disable=not verbose)
+
     while accepted_count < n:
         x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho, cam_radius, cam_angles = sample_ballistic_parameters(num_cams=num_cams, cfg_file=config_file)
 
@@ -203,7 +206,7 @@ def generate_data(n: int = 100,
             continue
 
         # last check: in how many frames is the ball visible?
-        traj = physics_ODE_simulation(x0, v0, g, w, b, m, rho, r, a, T, SPF)
+        traj = physics_ODE_simulation(x0, v0, g, w, b, m, rho, r, a, T, SPF, break_on_impact=break_on_impact)
         cam_radian_array = np.concatenate([cam1_pos, cam_radian_array])
         cams_pos = get_cams_position(cam_radian_array, cam_radius)
 
@@ -298,7 +301,7 @@ def generate_data(n: int = 100,
 
         accepted_count += 1
 
-        if accepted_count % 100 == 0:
+        if accepted_count % 100 == 0 and name is not None:
             with open(os.path.join(get_dir('data', 'bcnf-data', create=True), name + '.pkl'), 'wb') as f:
                 pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
 
@@ -308,5 +311,8 @@ def generate_data(n: int = 100,
 
     pbar.close()
 
-    with open(os.path.join(get_dir('data', 'bcnf-data', create=True), name + '.pkl'), 'wb') as f:
-        pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
+    if name is not None:
+        with open(os.path.join(get_dir('data', 'bcnf-data', create=True), name + '.pkl'), 'wb') as f:
+            pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
+
+    return data

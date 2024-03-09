@@ -222,19 +222,16 @@ class CondRealNVP(ConditionalInvertibleLayer):
         if log_det_J:
             self.log_det_J = torch.zeros(x.shape[0]).to(self.device)
 
-            for layer in self.layers:
-                if isinstance(layer, ConditionalInvertibleLayer):
-                    x = layer(x, y, log_det_J)
-                elif isinstance(layer, InvertibleLayer):
-                    x = layer(x, log_det_J)
-                else:
-                    raise ValueError(f"Layer must be an instance of ConditionalInvertibleLayer or InvertibleLayer, but got {type(layer)}")
-                self.log_det_J += layer.log_det_J
-
-            return x
-
         for layer in self.layers:
-            x = layer(x, y, log_det_J)
+            if isinstance(layer, ConditionalInvertibleLayer):
+                x = layer(x, y, log_det_J)
+            elif isinstance(layer, InvertibleLayer):
+                x = layer(x, log_det_J)
+            else:
+                raise ValueError(f"Layer must be an instance of ConditionalInvertibleLayer or InvertibleLayer, but got {type(layer)}")
+
+            if log_det_J:
+                self.log_det_J += layer.log_det_J
 
         return x
 
@@ -259,13 +256,13 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
         with torch.no_grad():
             for m in tqdm(m_batch_sizes, desc="Sampling", disable=not verbose):
-                y_hat_list.append(self._sample(m, y=y, outer=True, sigma=sigma, verbose=verbose).to(output_device))
+                y_hat_list.append(self._sample(m, y=y, outer=True, sigma=sigma).to(output_device))
 
         y_hat = torch.cat(y_hat_list, dim=0)
 
         return y_hat
 
-    def _sample(self, n_samples: int, y: torch.Tensor, sigma: float = 1, outer: bool = False, verbose: bool = False) -> torch.Tensor:
+    def _sample(self, n_samples: int, y: torch.Tensor, sigma: float = 1, outer: bool = False) -> torch.Tensor:
         """
         Sample from the model.
 
@@ -282,8 +279,6 @@ class CondRealNVP(ConditionalInvertibleLayer):
         outer : bool
             If True, the conditions are broadcasted to match the shape of the samples.
             If False, the conditions are matched to the shape of the samples.
-        verbose : bool
-            If True, print debug information.
 
         Returns
         -------
@@ -294,8 +289,6 @@ class CondRealNVP(ConditionalInvertibleLayer):
         y = y.to(self.device)
 
         if y.ndim == 1:
-            if verbose:
-                print('Broadcasting')
             # if len(y) != n_input_conditions:
             #     raise ValueError(f"y must have length {n_input_conditions}, but got len(y) = {len(y)}")
 
@@ -307,8 +300,6 @@ class CondRealNVP(ConditionalInvertibleLayer):
             return self.inverse(z, y).view(n_samples, self.size)
         elif y.ndim == 2:
             if outer:
-                if verbose:
-                    print('Outer')
                 # if y.shape[1] != n_input_conditions:
                 #     raise ValueError(f"y must have shape (n_samples_per_condition, {n_input_conditions}), but got y.shape = {y.shape}")
 
@@ -321,8 +312,6 @@ class CondRealNVP(ConditionalInvertibleLayer):
                 # Apply the inverse network
                 return self.inverse(z, y).view(n_samples, n_samples_per_condition, self.size)
             else:
-                if verbose:
-                    print('Matching')
                 # if y.shape[0] != n_samples or y.shape[1] != n_input_conditions:
                 #     raise ValueError(f"y must have shape (n_samples, {n_input_conditions}), but got y.shape = {y.shape}")
 
