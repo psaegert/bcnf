@@ -23,12 +23,13 @@ def sample_from_config(values: dict
         raise ValueError(f'Unknown distribution type: {distribution_type}')
 
 
-def get_cams_position(cam_radiants: np.ndarray,
-                      camera_circle_radius: float = 25
+def get_cams_position(cam_radiants: np.ndarray = np.array([0, 0]),
+                      cam_circle_radius: float = 25,
+                      cam_heights: np.ndarray = np.array([1, 1])
                       ) -> list[np.ndarray]:
     cams = []
-    for cam in cam_radiants:
-        cams.append(np.array([-camera_circle_radius * np.cos(cam), camera_circle_radius * np.sin(cam), 1.5]))
+    for cam_radiant, cam_height in (cam_radiants, cam_heights):
+        cams.append(np.array([-cam_circle_radius * np.cos(cam_radiant), cam_circle_radius * np.sin(cam_radiant), cam_height]))
     return cams
 
 
@@ -61,37 +62,66 @@ def sample_ballistic_parameters(num_cams: int = 2,
     config = Dynaconf(settings_files=[cfg_file])
 
     # pos
-    r_x = np.sqrt(np.abs(sample_from_config(config['x0']['x0_xy']))) * config['x0']['x0_xy']['std'] + config['x0']['x0_xy']['mean']
+    if config['x0']['x0_xy']['distribution'] == 'gaussian':
+        r_x = np.sqrt(np.abs(sample_from_config(config['x0']['x0_xy']))) * config['x0']['x0_xy']['std'] + config['x0']['x0_xy']['mean']
+    elif config['x0']['x0_xy']['distribution'] == 'uniform':
+        r_x = sample_from_config(config['x0']['x0_xy'])
+
     phi = np.random.uniform(0, 2 * np.pi)
 
     x0_x = r_x * np.cos(phi)
     x0_y = r_x * np.sin(phi)
-    x0_z = sample_from_config(config['x0']['x0_z']) * config['x0']['x0_z']['std'] + config['x0']['x0_z']['mean']
+
+    if config['x0']['x0_z']['distribution'] == 'gaussian':
+        x0_z = sample_from_config(config['x0']['x0_z']) * config['x0']['x0_z']['std'] + config['x0']['x0_z']['mean']
+    elif config['x0']['x0_z']['distribution'] == 'uniform':
+        x0_z = sample_from_config(config['x0']['x0_z'])
 
     x0 = np.array([x0_x, x0_y, x0_z])
 
     # velo
-    r_v = np.sqrt(np.abs(sample_from_config(config['v0']['v0_xy']))) * config['v0']['v0_xy']['std'] + config['v0']['v0_xy']['mean']
+    if config['v0']['v0_xy']['distribution'] == 'gaussian':
+        r_v = np.sqrt(np.abs(sample_from_config(config['v0']['v0_xy']))) * config['v0']['v0_xy']['std'] + config['v0']['v0_xy']['mean']
+    elif config['v0']['v0_xy']['distribution'] == 'uniform':
+        r_v = sample_from_config(config['v0']['v0_xy'])
+
     phi_v = np.random.uniform(0, 2 * np.pi)
 
     v0_x = r_v * np.cos(phi_v)
     v0_y = r_v * np.sin(phi_v)
-    v0_z = sample_from_config(config['v0']['v0_z']) * config['v0']['v0_z']['std'] + config['v0']['v0_z']['mean']
+
+    if config['v0']['v0_z']['distribution'] == 'gaussian':
+        v0_z = sample_from_config(config['v0']['v0_z']) * config['v0']['v0_z']['std'] + config['v0']['v0_z']['mean']
+    elif config['v0']['v0_z']['distribution'] == 'uniform':
+        v0_z = sample_from_config(config['v0']['v0_z'])
 
     v0 = np.array([v0_x, v0_y, v0_z])
 
     # wind
-    r_x = np.sqrt(np.abs(sample_from_config(config['w']['w_xy']))) * config['w']['w_xy']['std'] + config['w']['w_xy']['mean']
+    if config['w']['w_xy']['distribution'] == 'gaussian':
+        r_x = np.sqrt(np.abs(sample_from_config(config['w']['w_xy']))) * config['w']['w_xy']['std'] + config['w']['w_xy']['mean']
+    elif config['w']['w_xy']['distribution'] == 'uniform':
+        r_x = sample_from_config(config['w']['w_xy'])
+
     phi_w = np.random.uniform(0, 2 * np.pi)
 
     w_x = r_x * np.cos(phi_w)
     w_y = r_x * np.sin(phi_w)
-    w_z = sample_from_config(config['w']['w_z']) * config['w']['w_z']['std'] + config['w']['w_z']['mean']
+
+    if config['w']['w_z']['distribution'] == 'gaussian':
+        w_z = sample_from_config(config['w']['w_z']) * config['w']['w_z']['std'] + config['w']['w_z']['mean']
+    elif config['w']['w_z']['distribution'] == 'uniform':
+        w_z = sample_from_config(config['w']['w_z'])
 
     w = np.array([w_x, w_y, w_z])
 
     # thrust
-    r_a = np.cbrt(np.abs(sample_from_config(config['a']))) * config['a']['std'] + config['a']['mean']
+
+    if config['a']['distribution'] == 'gaussian':
+        r_a = np.cbrt(np.abs(sample_from_config(config['a']))) * config['a']['std'] + config['a']['mean']
+    elif config['a']['distribution'] == 'uniform':
+        r_a = sample_from_config(config['a'])
+
     phi_a = np.random.uniform(0, 2 * np.pi)
     theta_a = np.random.uniform(0, np.pi)
 
@@ -110,7 +140,7 @@ def sample_ballistic_parameters(num_cams: int = 2,
     # density of atmosphere
     rho = sample_from_config(config['rho'])
 
-    # radus of ball
+    # radius of ball
     r = sample_from_config(config['r_ball'])
 
     # area of thown object
@@ -130,25 +160,28 @@ def sample_ballistic_parameters(num_cams: int = 2,
     # cam radius
     cam_radius = sample_from_config(config['cam_radius'])
 
-    # cam_angles
+    # cam angles
     cam_angles = [sample_from_config(config['cam_angle']) for _ in range(num_cams)]
 
-    return x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho, cam_radius, cam_angles
+    # cam heights
+    cam_heights = [sample_from_config(config['cam_height']) for _ in range(num_cams)]
+
+    return x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho, cam_radius, cam_angles, cam_heights
 
 
 def generate_data(n: int = 100,
                   type: str = 'parameters',  # 'render', 'trajectory', or 'parameters'
                   SPF: float = 1 / 30,
-                  T: float = 3,
+                  T: float = 4,
                   ratio: tuple = (16, 9),
                   fov_horizontal: float = 70.0,
-                  cam1_pos: float = 0.0,
+                  cam1_radian: float = 0.0,
                   print_acc_rej: bool = False,
                   name: str = 'data',
                   num_cams: int = 2,
                   config_file: str = f'{get_dir()}/configs/config.yaml',
                   ) -> None:
-    cam1_pos = np.array([cam1_pos])
+    cam1_radian = np.array([cam1_radian])
     pbar = tqdm(total=n)
 
     accepted_count = 0
@@ -178,11 +211,12 @@ def generate_data(n: int = 100,
         'cam_radian': [],
         'r': [],
         'cam_radius': [],
-        'cam_angles': []
+        'cam_angles': [],
+        'cam_heights': []
     }
 
     while accepted_count < n:
-        x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho, cam_radius, cam_angles = sample_ballistic_parameters(num_cams=num_cams, cfg_file=config_file)
+        x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho, cam_radius, cam_angles, cam_heights = sample_ballistic_parameters(num_cams=num_cams, cfg_file=config_file)
 
         # first check: will the ball actually come down again?
         if g[2] + a[2] > 0:
@@ -204,8 +238,8 @@ def generate_data(n: int = 100,
 
         # last check: in how many frames is the ball visible?
         traj = physics_ODE_simulation(x0, v0, g, w, b, m, rho, r, a, T, SPF)
-        cam_radian_array = np.concatenate([cam1_pos, cam_radian_array])
-        cams_pos = get_cams_position(cam_radian_array, cam_radius)
+        cam_radian_array = np.concatenate([cam1_radian, cam_radian_array])
+        cams_pos = get_cams_position(cam_radian_array, cam_radius, cam_heights)
 
         cams = []
         for cam, angle in zip(cams_pos, cam_angles):
@@ -244,6 +278,7 @@ def generate_data(n: int = 100,
             data['r'].append(r)
             data['cam_radius'].append(cam_radius)
             data['cam_angles'].append(cam_angles)
+            data['cam_heights'].append(cam_heights)
 
         elif type == 'parameters':
             data['x0_x'].append(x0[0])
@@ -268,6 +303,7 @@ def generate_data(n: int = 100,
             data['r'].append(r)
             data['cam_radius'].append(cam_radius)
             data['cam_angles'].append(cam_angles)
+            data['cam_heights'].append(cam_heights)
 
         elif type == 'trajectory':
             data['traj'].append(traj)
@@ -293,6 +329,7 @@ def generate_data(n: int = 100,
             data['r'].append(r)
             data['cam_radius'].append(cam_radius)
             data['cam_angles'].append(cam_angles)
+            data['cam_heights'].append(cam_heights)
         else:
             raise ValueError('type must be one of "render", "trajectory", or "parameters"')
 
