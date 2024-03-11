@@ -4,16 +4,156 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 import wandb
+from sklearn.model_selection import KFold
+from torch.utils.data import Subset
 
 from bcnf.errors import TrainingDivergedError
 from bcnf.models import CondRealNVP
+from bcnf.train.setup import get_data_for_training, make_loader, make_model, set_training_device
+from bcnf.train.setup import inn_nll_loss
 
 
-def inn_nll_loss(z: torch.Tensor, log_det_J: torch.Tensor, reduction: str = 'mean') -> torch.Tensor:
-    if reduction == 'mean':
-        return torch.mean(0.5 * torch.sum(z**2, dim=1) - log_det_J)
-    else:
-        return 0.5 * torch.sum(z**2, dim=1) - log_det_J
+def training_pipeline(hyperparameters: dict,
+                      project_name: str) -> None:
+
+    if project_name is None:
+        raise ValueError("project_name is not set. Please use the project_name parameter to set the project name.")
+
+    device = set_training_device()
+
+    # tell wandb to get started
+    with wandb.init(project=project_name,
+                    config=hyperparameters):
+        # access all HPs through wandb.config, so logging matches execution!
+        config = wandb.config
+
+        # make the model, data, and optimization problem
+        model, dataset, criterion, optimizer = make(config, device)
+      
+        # Train the model with k-fold cross-validation
+        # Split the data into folds
+        kf = KFold(n_splits=config.n_splits, shuffle=config.shuffle, random_state=config.random_state)
+        fold_metrics = []
+
+        indices = list(range(len(dataset)))
+        for i, (train_index, val_index) in enumerate(kf.split(indices)):
+            train_subset = Subset(dataset, train_index)
+            val_subset = Subset(dataset, val_index)
+
+            # create the dataloaders
+            train_loader = make_loader(train_subset,
+                               batch_size=config.batch_size,
+                               num_workers=config.num_workers,
+                               pin_memory=True)
+            test_loader = make_loader(val_subset,
+                                    batch_size=config.batch_size,
+                                    num_workers=config.num_workers,
+                                    pin_memory=True)
+
+            # and use them to train the model
+            train(model,
+                  train_loader,
+                  test_loader,
+                  criterion,
+                  optimizer,
+                  config,
+                  device)
+
+    return model
+
+def make(config: dict, device: torch.device) -> tuple:
+    # Make the data
+    X, y = get_data_for_training(train=True), get_data_for_training(train=False)
+    
+    # Make the model
+    model = make_model(config, device)
+
+    # loss and optimizer
+    loss_function = inn_nll_loss
+    optimizer = torch.optim.Adam(lr=config.learning_rate)
+
+    return model, X, y, loss_function, optimizer
+
+def train(model: torch.nn.Module,
+        train_loader: torch.utils.data.DataLoader,
+        val_loader: torch.utils.data.DataLoader,
+        loss_function: torch.nn.Module,
+        optimizer: torch.optim.Optimizer,
+        config: dict,
+        device: torch.device) -> None:
+    
+    pbar = tqdm(range(config.n_epochs), disable=not config.verbose)
+
+    start_time = time.time()
+
+    # Train the model
+    for epoch in pbar:
+        model.train()
+        train_loss = 0.0
+
+        for x, y in train_loader:
+            # Add the loss to the total
+            train_loss += train_batch(x,
+                                      y,
+                                      model,
+                                      optimizer,
+                                      loss_function,
+                                      device)
+
+        # Calculate the average loss
+        train_loss /= len(train_loader)
+
+        # Calculate the loss on the validation set
+        if config.do_validate:
+            model.eval()
+            with torch.no_grad():
+                val_loss = 0.0
+
+                for x, y in val_loader:
+                    # Add the loss to the total
+                    val_loss += loss.item()
+
+                # Calculate the average loss
+                val_loss /= len(val_loader)
+
+
+def train_batch(x,
+                y,
+                model,
+                optimizer,
+                loss_function,
+                device):
+    images, labels = images.to(device), labels.to(device)
+    
+    # Forward pass ➡
+    outputs = model(images)
+    loss = loss_function(outputs, labels)
+    
+    # Backward pass ⬅
+    optimizer.zero_grad()
+    loss.backward()
+
+    # Step with optimizer
+    optimizer.step()
+
+    return loss.item()
+
+def validate_epoch(x,
+                   y,
+                   model,
+                   loss_function,
+                   device):
+    # Move the data to the correct device
+    x = x.to(model.device)
+    y = y.to(model.device)
+
+    # Run the model
+    z = model.forward(y, x, log_det_J=True)
+
+    # Calculate the loss
+    loss = loss_function(z, model.log_det_J)
+
+    return loss.item()
 
 
 def train_CondRealNVP(

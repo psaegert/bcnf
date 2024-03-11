@@ -177,7 +177,14 @@ class ActNorm(InvertibleLayer):
 
 
 class CondRealNVP(ConditionalInvertibleLayer):
-    def __init__(self, size: int, nested_sizes: list[int], n_blocks: int, n_conditions: int, feature_network: FeatureNetwork | None, dropout: float = 0.0, act_norm: bool = False, device: str = "cpu"):
+    def __init__(self, size: int,
+                 nested_sizes: list[int],
+                 n_blocks: int,
+                 n_conditions: int,
+                 feature_network: FeatureNetwork | None,
+                 dropout: float = 0.0,
+                 act_norm: bool = False,
+                 device: str = "cpu"):
         super(CondRealNVP, self).__init__()
 
         if n_conditions == 0 or feature_network is None:

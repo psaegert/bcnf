@@ -21,7 +21,10 @@ def main(argv: str = None) -> None:
     # Execute the command
     match args.command_name:
         case 'demo':
-            print(f'Running demo with dummy_option={args.dummy_option}')
+            import bcnf.train as t
+
+            t.wandb_login()
+
         case _:
             print('Unknown command: ', args.command)
             sys.exit(1)
