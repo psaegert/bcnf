@@ -1,9 +1,9 @@
 import datetime
 import time
-
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
+import wandb
 
 from bcnf.errors import TrainingDivergedError
 from bcnf.models import CondRealNVP
