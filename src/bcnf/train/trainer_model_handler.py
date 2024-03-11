@@ -1,44 +1,43 @@
 import torch
 
-from bcnf.models import FullyConnectedFeatureNetwork, CondRealNVP
-
+from bcnf.models import CondRealNVP, FullyConnectedFeatureNetwork
 
 
 class TrainerModelHandler:
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def make_model(config: dict, device: torch.device) -> torch.nn.Module:
+    def make_model(self, config: dict, device: torch.device) -> torch.nn.Module:
         """
         Create the model for training
-        
+
         Parameters
         ----------
         config : dict
             A dictionary containing the configuration for the model
         device : torch.device
             The device to use for training
-            
+
         Returns
         -------
         model : torch.nn.Module
             The model for training
         """
-        feature_network = FullyConnectedFeatureNetwork(sizes=config.sizes,
-                                                    dropout=config.dropout).to(device)
+        feature_network = FullyConnectedFeatureNetwork(sizes=config["sizes"],
+                                                       dropout=config["dropout"]).to(device)
 
         # Create the model
-        model = CondRealNVP(size=config.size,
-                            nested_sizes=config.nested_sizes,
-                            n_blocks=config.n_blocks,
-                            n_conditions=config.n_conditions,
+        model = CondRealNVP(size=config["size"],
+                            nested_sizes=config["nested_sizes"],
+                            n_blocks=config["n_blocks"],
+                            n_conditions=config["n_conditions"],
                             feature_network=feature_network,
-                            dropout=config.dropout,
-                            act_norm=config.act_norm,
+                            dropout=config["dropout"],
+                            act_norm=config["act_norm"],
                             device=device).to(device)
-        
+
         return model
-    
+
     def inn_nll_loss(z: torch.Tensor,
                      log_det_J: torch.Tensor,
                      reduction: str = 'mean') -> torch.Tensor:

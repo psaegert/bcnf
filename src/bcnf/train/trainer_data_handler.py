@@ -4,41 +4,38 @@ from torch.utils.data import TensorDataset
 from bcnf.simulation.physics import get_data
 
 
-
 class TrainerDataHandler:
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def generate_data_for_training(config: dict) -> torch.utils.data.TensorDataset:
+    def generate_data_for_training(self, config: dict) -> torch.utils.data.TensorDataset:
         """
         Generate data for training the model
-        
+
         Parameters
         ----------
         config : dict
             A dictionary containing the configuration parameters for the data generation
-            
+
         Returns
         -------
         dataset : torch.utils.data.TensorDataset
             A PyTorch TensorDataset containing the data for training the model"""
-        X, y = get_data(
-        T=config.T,
-        dt=config.dt,
-        N=config.N,
-        break_on_impact=config.break_on_impact,
-        )
+        X, y = get_data(T=config["T"],
+                        dt=config["dt"],
+                        N=config["N"],
+                        break_on_impact=config["break_on_impact"])
 
         X_tensor = torch.Tensor(X.reshape(X.shape[0], -1))
         y_tensor = torch.Tensor(y)
 
         dataset = TensorDataset(X_tensor, y_tensor)
-        
+
         return dataset
-    
+
     def load_data_for_training(self, filename: str) -> torch.utils.data.TensorDataset:
         raise NotImplementedError("This method has not been implemented yet.")
-    
+
     def make_data_loader(dataset: torch.tensor,
                          batch_size: int,
                          num_workers: int = 2) -> torch.utils.data.DataLoader:
@@ -60,8 +57,8 @@ class TrainerDataHandler:
             The DataLoader for the given dataset
         """
         loader = torch.utils.data.DataLoader(dataset=dataset,
-                                            batch_size=batch_size, 
-                                            shuffle=True,
-                                            pin_memory=True,
-                                            num_workers=num_workers)
+                                             batch_size=batch_size,
+                                             shuffle=True,
+                                             pin_memory=True,
+                                             num_workers=num_workers)
         return loader

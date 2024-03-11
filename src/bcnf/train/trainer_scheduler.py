@@ -1,7 +1,8 @@
 import torch
 
+
 class TrainerScheduler():
-    def __init__(self):
+    def __init__(self) -> None:
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau
         self.lr_scheduler_kwargs = {
             "mode": "min",
@@ -12,5 +13,5 @@ class TrainerScheduler():
         }
 
     def _create_scheduler(self,
-                          optimizer: torch.optim.Optimizer):
+                          optimizer: torch.optim.Optimizer) -> torch.optim.lr_scheduler.ReduceLROnPlateau:
         return self.scheduler(optimizer, **self.lr_scheduler_kwargs)

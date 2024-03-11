@@ -8,13 +8,13 @@ class TrainerLossHandler():
             raise ValueError("val_loss_tolerance_mode must be either 'rel' or 'abs'")
         else:
             self.loss_tolerance_mode = loss_tolerance_mode
-        
+
         self.best_val_loss = float('inf')
         self.best_val_epoch = 0
         self.val_loss_rolling_avg = None
         self.val_loss_alpha = val_loss_alpha
 
-        self.loss_history = {
+        self.loss_history: dict = {
             "train": [],
             "val": [],
             "lr": [],
