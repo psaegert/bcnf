@@ -9,3 +9,8 @@ scipy
 torch
 tqdm
 wandb
+torchvision
+notebook
+ipywidgets
+jupyter
+onnx
