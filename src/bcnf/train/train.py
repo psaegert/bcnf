@@ -9,8 +9,8 @@ from torch.utils.data import Subset
 
 from bcnf.errors import TrainingDivergedError
 from bcnf.models import CondRealNVP
-from bcnf.train.setup import get_data_for_training, make_loader, make_model, set_training_device
-from bcnf.train.setup import inn_nll_loss
+from bcnf.train.trainer_utils import get_data_for_training, make_loader, make_model, set_training_device
+from bcnf.train.trainer_utils import inn_nll_loss
 
 
 def training_pipeline(hyperparameters: dict,
