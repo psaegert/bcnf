@@ -1,0 +1,29 @@
+data:
+  T: 5.0
+  dt: 0.1
+  N: 500
+  break_on_impact: False
+model:
+  size: 14 # Input size to the CNF, TODO: Automate to matach the data input dimension
+  nested_sizes: 64 # TODO: Find out what this means
+  n_blocks: 32
+  n_conditions: 1024 # TODO: Find out what this means
+  dropout: 0.2
+  act_norm: True # TODO: Find out what this means
+  feature_network:
+    sizes: # TODO: Automate to match the data input dimension
+    dropout: 0.5
+training:
+  val_loss_alpha: 0.95  # TODO: Find out what this means
+  val_loss_tolerance_mode: "rel"
+  learning_rate: 2e-4
+  n_folds: 5  # Number of folds for cross-validation
+  shuffle: True  # Shuffle the data using kFold (I think this shuffles it across the folds)
+  random_state: 42  # Random state for ??? TODO: Find out for what
+  batch_size: 16
+  num_workers: 4  # Number of workers for the DataLoader
+  pin_memory: True  # Pin memory for the DataLoader
+  n_epochs: 100  # Number of epochs to train for using one fold configuration
+  verbose: True  # Verbose mode for the training loop
+  timeout: 3600  # 1 hour
+
