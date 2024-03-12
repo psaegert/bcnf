@@ -26,7 +26,8 @@ class Trainer():
         self.data_handler = TrainerDataHandler()
         self.model_handler = TrainerModelHandler()
         self.utilities = TrainerUtilities()
-        self.loss_handler = TrainerLossHandler(loss_tolerance_mode=self.config["training"]["val_loss_tolerance_mode"])
+        self.loss_handler = TrainerLossHandler(val_loss_alpha=self.config["training"]["val_loss_alpha"],
+                                               val_loss_tolerance_mode=self.config["training"]["val_loss_tolerance_mode"])
         self.scheduler_creator = TrainerScheduler()
 
         self.device = self.utilities.get_training_device()
