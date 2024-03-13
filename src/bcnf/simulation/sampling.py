@@ -137,6 +137,9 @@ def sample_ballistic_parameters(num_cams: int = 2,
 
 
 def generate_data(
+        name: str | None = None,
+        overwrite: bool = False,
+        config_file: str = f'{get_dir()}/configs/config.yaml',
         n: int = 100,
         type: str = 'parameters',  # 'render', 'trajectory', or 'parameters'
         SPF: float = 1 / 30,
@@ -145,11 +148,15 @@ def generate_data(
         fov_horizontal: float = 70.0,
         cam1_pos: float = 0.0,
         print_acc_rej: bool = False,
-        name: str | None = None,
         num_cams: int = 2,
-        config_file: str = f'{get_dir()}/configs/config.yaml',
         break_on_impact: bool = True,
         verbose: bool = False) -> dict[str, list]:
+
+    if name is not None:
+        file_path = os.path.join(get_dir('data', 'bcnf-data', create=True), name + '.pkl')
+        if os.path.exists(file_path and not overwrite):
+            raise FileExistsError(f"File {file_path} already exists and shall not be overwritten")
+
     cam1_pos = np.array([cam1_pos])
 
     accepted_count = 0
@@ -302,7 +309,7 @@ def generate_data(
         accepted_count += 1
 
         if accepted_count % 100 == 0 and name is not None:
-            with open(os.path.join(get_dir('data', 'bcnf-data', create=True), name + '.pkl'), 'wb') as f:
+            with open(file_path, 'wb') as f:
                 pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
 
         pbar.update(1)
@@ -312,7 +319,7 @@ def generate_data(
     pbar.close()
 
     if name is not None:
-        with open(os.path.join(get_dir('data', 'bcnf-data', create=True), name + '.pkl'), 'wb') as f:
+        with open(file_path, 'wb') as f:
             pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
 
     return data
