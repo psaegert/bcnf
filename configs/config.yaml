@@ -106,7 +106,7 @@ cam_angle:
   shape:  3      # only for gamma
   scale:  10     # only for gamma
 
-cam_height:
+cam_heights:
   distribution: uniform
   min:  0.4        # only for uniform
   max:  1.4        # only for uniform

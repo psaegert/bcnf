@@ -14,11 +14,15 @@ def sample_from_config(values: dict
                        ) -> float:
     distribution_type = values['distribution']
     if distribution_type == 'uniform':
-        return np.random.uniform(values.get('min'), values.get('max'))
+        if "min" not in values or "max" not in values:
+            raise ValueError('min and max must be defined for uniform distribution')
+        return np.random.uniform(values['min'], values['max'])
     elif distribution_type == 'gaussian':
         return np.random.normal(0, 1)  # mean and std are used as parameters for the standard normal distribution later
     elif distribution_type == 'gamma':
-        return np.random.gamma(values.get('shape'), values.get('scale'))
+        if "shape" not in values or "scale" not in values:
+            raise ValueError('shape and scale must be defined for gamma distribution')
+        return np.random.gamma(values['shape'], values['scale'])
     else:
         raise ValueError(f'Unknown distribution type: {distribution_type}')
 
@@ -44,8 +48,7 @@ def accept_visibility(visibility: float
         return False
 
 
-def accept_traveled_distance(distance: float,
-                             ) -> bool:
+def accept_traveled_distance(distance: float) -> bool:
     # assuming uniform distance distribution between 0 m and 50 m: acceptance rate of ~70 %
     ratio = distance / 50  # 50 m is just a base reference (diameter of the camera circle)
     if ratio > 0.75:
@@ -164,7 +167,7 @@ def sample_ballistic_parameters(num_cams: int = 2,
     cam_angles = [sample_from_config(config['cam_angle']) for _ in range(num_cams)]
 
     # cam heights
-    cam_heights = [sample_from_config(config['cam_height']) for _ in range(num_cams)]
+    cam_heights = [sample_from_config(config['cam_heights']) for _ in range(num_cams)]
 
     return x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho, cam_radius, cam_angles, cam_heights
 
@@ -176,17 +179,13 @@ def generate_data(
         T: float = 4,
         ratio: tuple = (16, 9),
         fov_horizontal: float = 70.0,
-        cam1_pos: float = 0.0,
+        cam1_radian: float = 0.0,
         print_acc_rej: bool = False,
         name: str | None = None,
         num_cams: int = 2,
         config_file: str = f'{get_dir()}/configs/config.yaml',
         break_on_impact: bool = True,
         verbose: bool = False) -> dict[str, list]:
-    cam1_pos = np.array([cam1_pos])
-    cam1_radian = np.array([cam1_radian])
- 
-    pbar = tqdm(total=n)
 
     accepted_count = 0
     rejected_count = 0
@@ -227,23 +226,32 @@ def generate_data(
         # first check: will the ball actually come down again?
         if g[2] + a[2] > 0:
             rejected_count += 1
+            pbar.set_postfix(accepted=accepted_count, rejected=rejected_count, ratio=accepted_count / (accepted_count + rejected_count))
             continue
 
         # second check: is x0_z > 0?
         if x0[2] < 0:
             rejected_count += 1
+            pbar.set_postfix(accepted=accepted_count, rejected=rejected_count, ratio=accepted_count / (accepted_count + rejected_count))
             continue
 
         # third check: how far does the ball travel?
         poi = calculate_point_of_impact(x0, v0, g, w, b, m, rho, r, a)
-        distance = np.linalg.norm(poi - x0)
+
+        # Check that poi and x0 have the same shape
+        if poi.shape != x0.shape:
+            raise ValueError(f'poi and x0 must have the same shape. poi.shape = {poi.shape}, x0.shape = {x0.shape}')
+        distance = float(np.linalg.norm(poi - x0))
 
         if not accept_traveled_distance(distance):
             rejected_count += 1
+            pbar.set_postfix(accepted=accepted_count, rejected=rejected_count, ratio=accepted_count / (accepted_count + rejected_count))
             continue
 
-        traj = physics_ODE_simulation(x0, v0, g, w, b, m, rho, r, a, T, SPF, break_on_impact=break_on_impact))
-        cam_radian_array = np.concatenate([cam1_radian, cam_radian_array])
+        traj = physics_ODE_simulation(x0, v0, g, w, b, m, rho, r, a, T, SPF, break_on_impact=break_on_impact)
+
+        # Prepend the first camera radian to the other camera radians
+        cam_radian_array = np.insert(cam_radian_array, 0, cam1_radian)
         cams_pos = get_cams_position(cam_radian_array, cam_radius, cam_heights)
 
         cams = []
@@ -254,6 +262,7 @@ def generate_data(
 
         if not accept_visibility(vis):
             rejected_count += 1
+            pbar.set_postfix(accepted=accepted_count, rejected=rejected_count, ratio=accepted_count / (accepted_count + rejected_count))
             continue
 
         # add to list
@@ -344,6 +353,7 @@ def generate_data(
             with open(os.path.join(get_dir('data', 'bcnf-data', create=True), name + '.pkl'), 'wb') as f:
                 pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
 
+        print(f'accepted: {accepted_count}, rejected: {rejected_count}', end='\r')
         pbar.update(1)
         if print_acc_rej:
             pbar.set_postfix(accepted=accepted_count, rejected=rejected_count, ratio=accepted_count / (accepted_count + rejected_count))
