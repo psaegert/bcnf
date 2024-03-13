@@ -11,6 +11,6 @@ scikit-learn
 scikit-optimize
 scipy
 torch
-tqdm
 torchvision
+tqdm
 wandb
