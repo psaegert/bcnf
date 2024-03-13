@@ -1,6 +1,10 @@
 dynaconf
+ipywidgets
+jupyter
 matplotlib
+notebook
 numpy
+onnx
 opencv-python
 pandas
 scikit-learn
@@ -8,4 +12,5 @@ scikit-optimize
 scipy
 torch
 tqdm
+torchvision
 wandb
