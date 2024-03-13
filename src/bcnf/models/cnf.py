@@ -177,7 +177,8 @@ class ActNorm(InvertibleLayer):
 
 
 class CondRealNVP(ConditionalInvertibleLayer):
-    def __init__(self, size: int,
+    def __init__(self,
+                 size: int,
                  nested_sizes: list[int],
                  n_blocks: int,
                  n_conditions: int,

@@ -29,6 +29,7 @@ class TrainerDataHandler:
         X_tensor = torch.Tensor(X.reshape(X.shape[0], -1))
         y_tensor = torch.Tensor(y)
 
+        # Matches pairs of lables and data, so dataset[0] returns tuple of the first entry in X and y
         dataset = TensorDataset(X_tensor, y_tensor)
 
         return dataset

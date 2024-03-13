@@ -1,0 +1,44 @@
+wandb_version: 1
+
+_wrapper_class:
+  desc: null
+  value: dynaconf.base.Settings
+_warn_dynaconf_global_settings:
+  desc: null
+  value: null
+_kwargs:
+  desc: null
+  value:
+    SETTINGS_FILE_FOR_DYNACONF: /home/computerman/Desktop/IGNNS/IGNNS-final-project/configs/trainer_config.yaml
+_wrapped:
+  desc: null
+  value: <dynaconf.base.Settings object at 0x725d0bd1ca50>
+_wandb:
+  desc: null
+  value:
+    python_version: 3.11.0rc1
+    cli_version: 0.16.4
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1710322647.0
+    t:
+      1:
+      - 1
+      - 5
+      - 53
+      - 55
+      2:
+      - 1
+      - 5
+      - 53
+      - 55
+      3:
+      - 2
+      - 16
+      - 23
+      4: 3.11.0rc1
+      5: 0.16.4
+      8:
+      - 5
+      13: linux-x86_64

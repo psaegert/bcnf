@@ -7,7 +7,27 @@ from tqdm import tqdm
 
 from bcnf.errors import TrainingDivergedError
 from bcnf.models import CondRealNVP
-from bcnf.train.trainer_utils import inn_nll_loss
+
+
+def inn_nll_loss(z: torch.Tensor, log_det_J: torch.Tensor, reduction: str = 'mean') -> torch.Tensor:
+    """
+    Compute the negative log-likelihood loss for the INN
+
+    Parameters
+    ----------
+    z : torch.Tensor
+        The input tensor
+    log_det_J : torch.Tensor
+        The log determinant of the Jacobian
+    reduction : str
+        The reduction to apply to the loss
+
+    Returns
+    -------
+    torch.Tensor
+        The negative log-likelihood loss
+    """
+    return 0.5 * (z.pow(2).sum(1) - z.size(1) * torch.log(2 * torch.tensor([3.141592653589793], device=z.device)) - log_det_J).mean()
 
 
 def train_CondRealNVP(

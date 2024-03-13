@@ -3,11 +3,11 @@ import time
 from typing import Callable
 
 import torch
-import wandb
 from sklearn.model_selection import KFold
 from torch.utils.data import Subset
 from tqdm import tqdm
 
+# import wandb
 from bcnf.train import TrainerDataHandler, TrainerLossHandler, TrainerModelHandler, TrainerScheduler, TrainerUtilities
 
 
@@ -34,15 +34,17 @@ class Trainer():
 
     def training_pipeline(self) -> None:
         # tell wandb to get started
+        '''
         with wandb.init(project=self.project_name,
                         config=self.config):
-            # access all HPs through wandb.config, so logging matches execution!
-            self.config = wandb.config
+        '''
+        # access all HPs through wandb.config, so logging matches execution!
+        # self.config = wandb.config
 
-            # make the model, data, and optimization problem
-            model, dataset, loss_function, optimizer, scheduler = self._make()
+        # make the model, data, and optimization problem
+        model, dataset, loss_function, optimizer, scheduler = self._make()
 
-            self._train_kfold(model, dataset, loss_function, optimizer, scheduler)
+        self._train_kfold(model, dataset, loss_function, optimizer, scheduler)
 
         return model
 
@@ -56,6 +58,8 @@ class Trainer():
 
         # Make the model
         model = self.model_handler.make_model(config=self.config["model"],
+                                              data_size_primary=len(data[0][1]),
+                                              data_size_feature=len(data[0][0]),
                                               device=self.device)
 
         # loss and optimizer

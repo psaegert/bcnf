@@ -1,8 +1,8 @@
 import os
 
 import torch
-import wandb
 
+import wandb
 from bcnf.utils import get_dir
 
 
@@ -53,4 +53,4 @@ class TrainerUtilities():
         with open(key_file, 'r') as f:
             API_key = f.read().strip()
 
-        wandb.login(key=API_key)
+        wandb.login(key=API_key)  # type: ignore

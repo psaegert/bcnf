@@ -13,7 +13,11 @@ class FeatureNetwork(nn.Module):
 
 
 class FullyConnectedFeatureNetwork(FeatureNetwork):
-    def __init__(self, sizes: list[int], activation: Type[nn.Module] = nn.GELU, dropout: float = 0.0, batch_norm: bool = False) -> None:
+    def __init__(self,
+                 sizes: list[int],
+                 activation: Type[nn.Module] = nn.GELU,
+                 dropout: float = 0.0,
+                 batch_norm: bool = False) -> None:
         super(FullyConnectedFeatureNetwork, self).__init__()
 
         self.nn = nn.Sequential()
