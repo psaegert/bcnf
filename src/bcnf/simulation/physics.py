@@ -2,6 +2,7 @@ from typing import Callable
 
 import numpy as np
 from scipy.integrate import odeint
+from tqdm import tqdm
 
 
 # physics simulation with ODE integration
@@ -61,10 +62,10 @@ def physics_ODE_simulation(x0: np.ndarray = np.array([0, 0, 1.8]),      # initia
 
 
 def get_data(
-        x0_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size),
-        v0_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size),
+        x0_pdf: Callable = lambda size: np.random.uniform(0, 10, size=size),
+        v0_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size) + np.array([0, 0, 9]),
         g_pdf: Callable = lambda size: np.random.normal(9.81, 0.1, size=size) * np.array([0, 0, -1]),
-        w_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size),
+        w_pdf: Callable = lambda size: np.random.normal(0, 1, size=size) * np.array([1, 1, 0.1]),
         b_pdf: Callable = lambda size: np.random.uniform(0, 1, size=size),
         m_pdf: Callable = lambda size: np.random.uniform(0.5, 1.5, size=size),
         rho_pdf: Callable = lambda size: np.random.uniform(1.0, 1.5, size=size),
@@ -120,11 +121,11 @@ def get_data(
 
     # Run the simulation
     X = np.zeros((N, int(T / dt), 3))
-    for i in range(N):
+    for i in tqdm(range(N)):
         X[i] = physics_ODE_simulation(x0[i], v0[i], g[i], w[i], b[i], m[i], rho[i], r[i], a[i], T, dt, break_on_impact=break_on_impact)
 
     # Stack the parameters into a single vector for each simulation
-    y = np.column_stack([x0, v0, w, b, m, a])
+    y = np.column_stack([x0, v0, g, w, b, m, a])
 
     return X, y
 

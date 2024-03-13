@@ -1,5 +1,9 @@
 /data
-models
+
+/models
+
+*.pkl
+
 *.png
 
 # Byte-compiled / optimized / DLL files

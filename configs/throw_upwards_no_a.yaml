@@ -7,9 +7,9 @@ x0:
     mean: 0     # only for gaussian
     std:  30    # only for gaussian
   x0_z:
-    distribution: 'uniform'  # 'gaussian' or 'uniform'
-    min:  0.1     # only for uniform
-    max:  2.5     # only for uniform
+    distribution: 'gaussian'  # 'gaussian' or 'uniform'
+    min:  1     # only for uniform
+    max:  2     # only for uniform
     mean: 1.5   # only for gaussian
     std:  0.33  # only for gaussian
 
@@ -23,10 +23,10 @@ v0:
     std:  20    # only for gaussian
   v0_z:
     distribution: 'gaussian'  # 'gaussian' or 'uniform'
-    min:  -25   # only for uniform
+    min:  -5   # only for uniform
     max:  25    # only for uniform
     mean: 10     # only for gaussian
-    std:  15    # only for gaussian
+    std:  20    # only for gaussian
 
 # w_x and w_y are sampled polar, w_z separately
 w:
@@ -35,19 +35,19 @@ w:
     min:  -20   # only for uniform
     max:  20    # only for uniform
     mean: 0     # only for gaussian
-    std:  7     # only for gaussian
+    std:  15    # only for gaussian
   w_z:
     distribution: 'gaussian'  # 'gaussian' or 'uniform'
     min:  -10   # only for uniform
     max:  10    # only for uniform
     mean: 0     # only for gaussian
-    std:  2.5   # only for gaussian
+    std:  5     # only for gaussian
 
 # a_x, a_y and a_z are sampled together
 a:
   distribution: 'gaussian'  # 'gaussian' or 'uniform'
-  min:  -5    # only for uniform
-  max:  5     # only for uniform
+  min:  0    # only for uniform
+  max:  0     # only for uniform
   mean: 0     # only for gaussian
   std:  0     # only for gaussian
 
@@ -63,14 +63,14 @@ rho:
   distribution: 'gamma'  # 'gamma' or 'uniform'
   min:  0         # only for uniform
   max:  1.5       # only for uniform
-  shape:  3.5     # only for gamma
+  shape:  2       # only for gamma
   scale:  0.35    # only for gamma
 
 r_ball:
   distribution: 'gamma'  # 'gamma' or 'uniform'
   min:  0.03      # only for uniform
   max:  0.2       # only for uniform
-  shape: 1.75     # only for gaussian
+  shape:  3       # only for gaussian
   scale: 0.05     # only for gaussian
 
 Cd:
@@ -105,8 +105,3 @@ cam_angle:
   max:  65       # only for uniform
   shape:  3      # only for gamma
   scale:  10     # only for gamma
-
-cam_heights:
-  distribution: uniform
-  min:  0.4        # only for uniform
-  max:  1.4        # only for uniform

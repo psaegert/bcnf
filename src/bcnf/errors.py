@@ -1,0 +1,2 @@
+class TrainingDivergedError(Exception):
+    pass
