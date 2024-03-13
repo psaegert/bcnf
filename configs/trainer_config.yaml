@@ -1,6 +1,6 @@
 data:
-  converter: "passthrough_tensor" # Converter to use for the data of the feature network
-  load: False # Load or generate data
+  converter: "flatten_tensor" # Converter to use for the data of the feature network
+  load: True # Load or generate data
   load_path: "./data/bcnf-data/data1.pkl" # Path to the data if it should be loaded
   # Data generation parameters
   name: "data1"

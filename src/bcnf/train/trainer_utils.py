@@ -25,10 +25,12 @@ class TrainerUtilities():
         """
         if torch.cuda.is_available():
             device = torch.device('cuda')
-            torch.set_default_tensor_type(torch.cuda.FloatTensor)
+            # TODO: FIX torch.set_default_dtype(torch.cuda.FloatTensor)
         else:
             device = torch.device('cpu')
-            torch.set_default_tensor_type(torch.FloatTensor)
+            # TODO: FIX torch.set_default_dtype(torch.float)
+
+        print(f"Using device: {device}")
 
         return device
 

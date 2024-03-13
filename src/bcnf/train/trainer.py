@@ -58,13 +58,14 @@ class Trainer():
 
         # Make the model
         model = self.model_handler.make_model(config=self.config["model"],
-                                              data_size_primary=len(data[0][1]),
-                                              data_size_feature=len(data[0][0]),
+                                              data_size_primary=data[0][1].shape,
+                                              data_size_feature=data[0][0].shape,
                                               device=self.device)
 
         # loss and optimizer
         loss_function = self.model_handler.inn_nll_loss
-        optimizer = torch.optim.Adam(lr=self.config["training"]["learning_rate"])
+        optimizer = torch.optim.Adam(model.parameters(),
+                                     lr=self.config["training"]["learning_rate"])
 
         scheduler = self.scheduler_creator._create_scheduler(optimizer)
 
@@ -89,14 +90,14 @@ class Trainer():
             val_subset = Subset(dataset, val_index)
 
             # create the dataloaders
-            train_loader = self.data_handler.make_loader(train_subset,
-                                                         batch_size=self.config["training"]["batch_size"],
-                                                         num_workers=self.config["training"]["num_workers"],
-                                                         pin_memory=self.config["training"]["pin_memory"])
-            test_loader = self.data_handler.make_loader(val_subset,
-                                                        batch_size=self.config["training"]["batch_size"],
-                                                        num_workers=self.config["training"]["num_workers"],
-                                                        pin_memory=self.config["training"]["pin_memory"])
+            train_loader = self.data_handler.make_data_loader(dataset=train_subset,
+                                                              batch_size=self.config["training"]["batch_size"],
+                                                              pin_memory=self.config["training"]["pin_memory"],
+                                                              num_workers=self.config["training"]["num_workers"])
+            test_loader = self.data_handler.make_data_loader(dataset=val_subset,
+                                                             batch_size=self.config["training"]["batch_size"],
+                                                             pin_memory=self.config["training"]["pin_memory"],
+                                                             num_workers=self.config["training"]["num_workers"])
 
             # and use them to train the model
             self._train(model,

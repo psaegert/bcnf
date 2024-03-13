@@ -1,5 +1,6 @@
 import pickle
 
+import numpy as np
 import torch
 from torch.utils.data import TensorDataset
 
@@ -45,7 +46,7 @@ class TrainerDataHandler:
         # Data for primary network -> make it n x #parameters
         keys = list(data.keys())
         keys = [key for key in keys if key not in ['cams', 'traj']]
-        tensors = [torch.tensor(data[key]) for key in keys]
+        tensors = [torch.tensor(np.array(data[key])) for key in keys]
         # Split nxx tensors into x separate tensors
         split_tensors = [torch.split(tensor, 1, dim=1) if tensor.dim() == 2 else [tensor] for tensor in tensors]
         # Flatten the list of lists
@@ -84,8 +85,10 @@ class TrainerDataHandler:
 
         return data
 
-    def make_data_loader(dataset: torch.tensor,
+    def make_data_loader(self,
+                         dataset: torch.utils.data.TensorDataset,
                          batch_size: int,
+                         pin_memory: bool,
                          num_workers: int = 2) -> torch.utils.data.DataLoader:
         """
         Create a DataLoader for the given dataset
@@ -107,6 +110,6 @@ class TrainerDataHandler:
         loader = torch.utils.data.DataLoader(dataset=dataset,
                                              batch_size=batch_size,
                                              shuffle=True,
-                                             pin_memory=True,
+                                             pin_memory=pin_memory,
                                              num_workers=num_workers)
         return loader

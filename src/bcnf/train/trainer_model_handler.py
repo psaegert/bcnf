@@ -9,8 +9,8 @@ class TrainerModelHandler:
 
     def make_model(self,
                    config: dict,
-                   data_size_primary: int,
-                   data_size_feature: int,
+                   data_size_primary: torch.Size,
+                   data_size_feature: torch.Size,
                    device: torch.device) -> torch.nn.Module:
         """
         Create the model for training
@@ -27,16 +27,18 @@ class TrainerModelHandler:
         model : torch.nn.Module
             The model for training
         """
-        feature_network_sized = list(config["feature_network"]["sizes"])
+        data_size_primary_int = data_size_primary[0]
+        data_size_feature_int = data_size_feature[0]
+
+        feature_network_sized = list(config["feature_network"]["hidden_layer_sizes"])
         feature_network_sized.append(config["feature_network"]["n_conditions"])
+        feature_network_sized.insert(0, data_size_feature_int)
 
         feature_network = FullyConnectedFeatureNetwork(sizes=feature_network_sized,
                                                        dropout=config["dropout"]).to(device)
-        print(data_size_primary)
-        input("Press Enter to continue...")
 
         # Create the model
-        model = CondRealNVP(size=data_size_primary,
+        model = CondRealNVP(size=data_size_primary_int,
                             nested_sizes=config["nested_sizes"],
                             n_blocks=config["n_blocks"],
                             n_conditions=config["feature_network"]["n_conditions"],
