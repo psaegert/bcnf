@@ -1,0 +1,112 @@
+# x0_x and x0_y are sampled polar, x0_z separately
+x0:
+  x0_xy:
+    distribution: 'gaussian'  # 'gaussian' or 'uniform'
+    min:  0     # only for uniform
+    max:  40    # only for uniform
+    mean: 0     # only for gaussian
+    std:  30    # only for gaussian
+  x0_z:
+    distribution: 'uniform'  # 'gaussian' or 'uniform'
+    min:  0.1     # only for uniform
+    max:  2.5     # only for uniform
+    mean: 1.5   # only for gaussian
+    std:  0.33  # only for gaussian
+
+# v0_x and v0_y are sampled polar, v0_z separately
+v0:
+  v0_xy:
+    distribution: 'gaussian'  # 'gaussian' or 'uniform'
+    min:  -25   # only for uniform
+    max:  25    # only for uniform
+    mean: 0     # only for gaussian
+    std:  20    # only for gaussian
+  v0_z:
+    distribution: 'gaussian'  # 'gaussian' or 'uniform'
+    min:  -25   # only for uniform
+    max:  25    # only for uniform
+    mean: 10     # only for gaussian
+    std:  15    # only for gaussian
+
+# w_x and w_y are sampled polar, w_z separately
+w:
+  w_xy:
+    distribution: 'gaussian'  # 'gaussian' or 'uniform'
+    min:  -20   # only for uniform
+    max:  20    # only for uniform
+    mean: 0     # only for gaussian
+    std:  7     # only for gaussian
+  w_z:
+    distribution: 'gaussian'  # 'gaussian' or 'uniform'
+    min:  -10   # only for uniform
+    max:  10    # only for uniform
+    mean: 0     # only for gaussian
+    std:  2.5   # only for gaussian
+
+# a_x, a_y and a_z are sampled together
+a:
+  distribution: 'gaussian'  # 'gaussian' or 'uniform'
+  min:  -5    # only for uniform
+  max:  5     # only for uniform
+  mean: 0     # only for gaussian
+  std:  0     # only for gaussian
+
+# only g_z is sampled, no accelarational component parallel to the ground
+g:
+  distribution: 'gamma'  # 'gamma' or 'uniform'; Gamma: https://numpy.org/doc/stable/reference/random/generated/numpy.random.gamma.html
+  min:  0.7848  # only for uniform
+  max:  24.525  # only for uniform
+  shape:  9.81  # only for gamma
+  scale:  1     # only for gamma
+
+rho:
+  distribution: 'gamma'  # 'gamma' or 'uniform'
+  min:  0         # only for uniform
+  max:  1.5       # only for uniform
+  shape:  3.5     # only for gamma
+  scale:  0.35    # only for gamma
+
+r_ball:
+  distribution: 'gamma'  # 'gamma' or 'uniform'
+  min:  0.03      # only for uniform
+  max:  0.2       # only for uniform
+  shape: 1.75     # only for gaussian
+  scale: 0.05     # only for gaussian
+
+Cd:
+  distribution: 'gamma'  # 'gamma' or 'uniform'
+  min:  0.04      # only for uniform
+  max:  1.42      # only for uniform
+  shape:  2       # only for gamma
+  scale:  0.35    # only for gamma
+
+m:
+  distribution: 'gamma'  # 'gamma' or 'uniform'
+  min:  0.056      # only for uniform
+  max:  0.62       # only for uniform
+  shape:  2        # only for gamma
+  scale:  0.15     # only for gamma
+
+cam_radian:
+  distribution: 'uniform'
+  min:  0
+  max:  6.283185307
+
+cam_radius:
+  distribution: 'gamma' # 'gamma' or 'uniform'
+  min:  10        # only for uniform
+  max:  50        # only for uniform
+  shape:  3.5     # only for gamma
+  scale:  8       # only for gamma
+
+cam_angle:
+  distribution: 'gamma' # 'gamma' or 'uniform'
+  min:  0        # only for uniform
+  max:  65       # only for uniform
+  shape:  3      # only for gamma
+  scale:  10     # only for gamma
+
+cam_height:
+  distribution: uniform
+  min:  0.4        # only for uniform
+  max:  1.4        # only for uniform

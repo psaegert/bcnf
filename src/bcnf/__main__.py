@@ -11,9 +11,8 @@ def main(argv: str = None) -> None:
     parser = argparse.ArgumentParser(description='Ballistic Conditional Normalizing Flows (BCNF)')
     subparsers = parser.add_subparsers(dest='command_name', required=True)
 
-    # answerQuestion
+    # TODO: Remove demo command
     demo_parser = subparsers.add_parser("demo")
-
     demo_parser.add_argument('--dummy_option', type=str, default='dummy_value', help='Dummy option')
 
     # Evaluate input
