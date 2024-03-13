@@ -152,6 +152,7 @@ def base_minimize_fixed(
     # Optimize
     for n in range(n_calls):
         next_x = optimizer.ask()
+        print(f'Asking optimizer for next point {n+1}: {next_x}')
         next_y = func(next_x)
         result = optimizer.tell(next_x, next_y)
         result.specs = specs

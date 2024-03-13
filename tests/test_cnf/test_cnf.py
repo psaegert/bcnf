@@ -18,7 +18,7 @@ class TestCNFInvertibility(unittest.TestCase):
     def test_conditional_affine_coupling_layer(self) -> None:
         coupling_layer = ConditionalAffineCouplingLayer(
             input_size=self.input_size,
-            hidden_size=self.hidden_size,
+            nested_sizes=[self.hidden_size] * 5,
             n_conditions=self.n_conditions
         )
         coupling_layer.eval()
@@ -34,7 +34,7 @@ class TestCNFInvertibility(unittest.TestCase):
     def test_conditional_real_nvp(self) -> None:
         real_nvp = CondRealNVP(
             size=self.input_size,
-            hidden_size=self.hidden_size,
+            nested_sizes=[self.hidden_size] * 5,
             n_blocks=5,
             n_conditions=self.n_conditions,
             feature_network=None
