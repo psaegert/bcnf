@@ -54,7 +54,7 @@ class Trainer():
                              torch.optim.Optimizer,
                              torch.optim.lr_scheduler.ReduceLROnPlateau]:
         # Make the data
-        data = self.data_handler.generate_data_for_training(config=self.config["data"])
+        data = self.data_handler.get_data_for_training(config=self.config["data"])
 
         # Make the model
         model = self.model_handler.make_model(config=self.config["model"],

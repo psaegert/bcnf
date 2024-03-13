@@ -1,22 +1,39 @@
 data:
+  load: False # Load or generate data
+  load_path: "./data/bcne-data/data1.pkl" # Path to the data if it should be loaded
+  # Data generation parameters
+  name: "data1"
+  overwrite: False
+  data_generation_config_file: "./configs/config.yaml"
+  n_samples: 6
+  data_type: "render"
+  SPF: 0.001
   T: 5.0
-  dt: 0.1
-  N: 6
+  ratio:
+    - 16
+    - 9
+  fov_horizontal: 70.0
+  cam1_pos: 0.0
+  print_acc_rej: False
+  num_cams: 2
   break_on_impact: False
+  verbose: True
 model:  # Size is automatically determined by the data size (y)
-  nested_sizes: 64 # TODO: Find out what this means
-  n_blocks: 32
-  n_conditions: 1024 # TODO: Find out what this means
-  dropout: 0.2
-  act_norm: True # TODO: Find out what this means
-  feature_network:
-    sizes:  # The first layer is the input size and is not listed here ; last layer is two and is not listed here
-      - 200
-      - 250
-      - 200
-      - 100
-      - 30
-    dropout: 0.2
+  nested_sizes:  # List of sizes for the nested network (hidden sizes) first and last layer gets created automatically
+    - 240
+    - 240
+    - 240
+  n_blocks: 28 # Number of blocks in the CNF (block = affine coupling layer + orthonormal transformation)
+  dropout: 0.23 # Dropout rate (if > 0.0 Dropout layers are inserted after each layer)
+  act_norm: True # Some kind of noramlization befor the actication function
+  feature_network: # First layer is as big as input
+    dropout: 0.13 # Dropout rate (if > 0.0 Dropout layers are inserted after each layer)
+    hidden_layer_sizes:
+      - 101
+      - 101
+      - 101
+      - 101
+    n_conditions: 101 # Size of the outpout of the feature network (Condition size C)
 training:
   val_loss_alpha: 0.95  # TODO: Find out what this means
   val_loss_tolerance_mode: "rel"

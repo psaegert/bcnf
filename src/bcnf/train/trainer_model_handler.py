@@ -28,8 +28,7 @@ class TrainerModelHandler:
             The model for training
         """
         feature_network_sized = list(config["feature_network"]["sizes"])
-        feature_network_sized.insert(0, data_size_feature // 2)
-        feature_network_sized.append(2)
+        feature_network_sized.append(config["feature_network"]["n_conditions"])
 
         feature_network = FullyConnectedFeatureNetwork(sizes=feature_network_sized,
                                                        dropout=config["dropout"]).to(device)
@@ -40,7 +39,7 @@ class TrainerModelHandler:
         model = CondRealNVP(size=data_size_primary,
                             nested_sizes=config["nested_sizes"],
                             n_blocks=config["n_blocks"],
-                            n_conditions=config["n_conditions"],
+                            n_conditions=config["feature_network"]["n_conditions"],
                             feature_network=feature_network,
                             dropout=config["dropout"],
                             act_norm=config["act_norm"],
