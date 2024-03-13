@@ -1,7 +1,7 @@
 import warnings
 from typing import Callable
 
-import numpy
+import numpy as np
 import torch
 
 
@@ -35,7 +35,8 @@ class RenderConverter:
         converter : Callable
             The converter function
         """
-        if converter_function_name != "":
+
+        if converter_function_name == "":
             raise ValueError(f"Function {converter_function_name} does not exist")
 
         match converter_function_name:
@@ -46,7 +47,7 @@ class RenderConverter:
                 return RenderConverter.passthrough_converter
 
     @staticmethod
-    def passthrough_converter(data: list[list[numpy.array]]) -> torch.Tensor:
+    def passthrough_converter(data: list[list[np.array]]) -> torch.Tensor:
         """
         Passthrough converter function
 
@@ -60,6 +61,6 @@ class RenderConverter:
         converted_data : torch.Tensor
             The converted data
         """
-        converted_data = torch.tensor(data)
+        converted_data = torch.tensor(np.array(data))
 
         return converted_data

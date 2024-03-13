@@ -25,12 +25,12 @@ def main(argv: str = None) -> None:
         case 'run-trainer':
             from dynaconf import Dynaconf
 
-            import bcnf.train as train
+            from bcnf.train.trainer import Trainer
 
             config_file_path = f'{get_dir()}/configs/trainer_config.yaml'
             config = Dynaconf(settings_files=config_file_path)
 
-            trainer = train.Trainer(config=config, project_name='bcnf-test')
+            trainer = Trainer(config=config, project_name='bcnf-test')
 
             trainer.training_pipeline()
 

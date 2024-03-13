@@ -154,7 +154,7 @@ def generate_data(
 
     if name is not None:
         file_path = os.path.join(get_dir('data', 'bcnf-data', create=True), name + '.pkl')
-        if os.path.exists(file_path and not overwrite):
+        if os.path.exists(file_path) and not overwrite:
             raise FileExistsError(f"File {file_path} already exists and shall not be overwritten")
 
     cam1_pos = np.array([cam1_pos])

@@ -1,14 +1,15 @@
 data:
+  converter: "passthrough_tensor" # Converter to use for the data of the feature network
   load: False # Load or generate data
-  load_path: "./data/bcne-data/data1.pkl" # Path to the data if it should be loaded
+  load_path: "./data/bcnf-data/data1.pkl" # Path to the data if it should be loaded
   # Data generation parameters
   name: "data1"
-  overwrite: False
+  overwrite: True
   data_generation_config_file: "./configs/config.yaml"
-  n_samples: 6
+  n_samples: 5
   data_type: "render"
-  SPF: 0.001
-  T: 5.0
+  SPF: 0.5
+  T: 3.0
   ratio:
     - 16
     - 9

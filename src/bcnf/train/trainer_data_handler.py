@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import TensorDataset
 
 from bcnf.simulation.sampling import generate_data
+from bcnf.train.training_data_converter import RenderConverter
 
 
 class TrainerDataHandler:
@@ -26,40 +27,47 @@ class TrainerDataHandler:
         """
         if (config["load"]):
             print(f"Loading data from {config['load_path']}")
-            X, y = self._load_data_for_training(config["load_path"])
+            data = self._load_data_for_training(config["load_path"])
         else:
             print("Generating data")
-            X, y = self._generate_data_for_training(config)
+            data = self._generate_data_for_training(config)
+
+        conversion_function = RenderConverter.get_converter(config["converter"])
+
+        # Data for feature network
+        if 'cams' in data:
+            X = conversion_function(data['cams'])
+        elif 'traj' in data:
+            X = data['traj']
+        else:
+            X = torch.zeros(len(data['x0_x']))
+
+        # Data for primary network -> make it n x #parameters
+        keys = list(data.keys())
+        keys = [key for key in keys if key not in ['cams', 'traj']]
+        tensors = [torch.tensor(data[key]) for key in keys]
+        # Split nxx tensors into x separate tensors
+        split_tensors = [torch.split(tensor, 1, dim=1) if tensor.dim() == 2 else [tensor] for tensor in tensors]
+        # Flatten the list of lists
+        split_tensors = [item for sublist in split_tensors for item in sublist]
+        # Check if any tensors have shape 5x1 and squeeze them to 5
+        split_tensors = [tensor.squeeze() if tensor.shape == torch.Size([5, 1]) else tensor for tensor in split_tensors]
+        # Stack all tensors along dimension 1
+        y = torch.stack(split_tensors, dim=1)
 
         # Matches pairs of lables and data, so dataset[0] returns tuple of the first entry in X and y
         dataset = TensorDataset(X, y)
 
         return dataset
 
-    def _load_data_for_training(self, filename: str) -> tuple[torch.tensor, torch.tensor]:
+    def _load_data_for_training(self, filename: str) -> dict[str, list]:
         with open(filename, 'rb') as f:
             data = pickle.load(f)
 
-        # Data for feature network
-        if 'cams' in data:
-            X = data['cams']
-        elif 'trj' in data:
-            X = data['trj']
-        else:
-            X = torch.zeros(len(data['x0_x']))
+        return data
 
-        # Data for primary network
-        keys = list(data.keys())
-        keys = [key for key in keys if key not in ['cams', 'trj']]
-        # Convert lists to tensors
-        tensors = [torch.tensor(data[key]) for key in keys]
-        # Stack tensors along a new dimension
-        y = torch.stack(tensors, dim=1)
-
-        return X, y
-
-    def _generate_data_for_training(self, config: dict) -> tuple[torch.tensor, torch.tensor]:
-        X, y = generate_data(name=config["name"],
+    def _generate_data_for_training(self, config: dict) -> dict[str, list]:
+        data = generate_data(name=config["name"],
                              overwrite=config["overwrite"],
                              config_file=config["data_generation_config_file"],
                              n=config["n_samples"],
@@ -74,7 +82,7 @@ class TrainerDataHandler:
                              break_on_impact=config["break_on_impact"],
                              verbose=config["verbose"])
 
-        return X, y
+        return data
 
     def make_data_loader(dataset: torch.tensor,
                          batch_size: int,
