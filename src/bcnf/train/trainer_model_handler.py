@@ -1,3 +1,5 @@
+from typing import Any
+
 import torch
 
 from bcnf.models import CondRealNVP, FullyConnectedFeatureNetwork
@@ -11,7 +13,8 @@ class TrainerModelHandler:
                    config: dict,
                    data_size_primary: torch.Size,
                    data_size_feature: torch.Size,
-                   device: torch.device) -> torch.nn.Module:
+                   device: torch.device,
+                   data_type: Any = torch.float32) -> torch.nn.Module:
         """
         Create the model for training
 
@@ -35,7 +38,8 @@ class TrainerModelHandler:
         feature_network_sized.insert(0, data_size_feature_int)
 
         feature_network = FullyConnectedFeatureNetwork(sizes=feature_network_sized,
-                                                       dropout=config["dropout"]).to(device)
+                                                       dropout=config["dropout"],
+                                                       ).to(device).to(data_type)
 
         # Create the model
         model = CondRealNVP(size=data_size_primary_int,
@@ -45,7 +49,7 @@ class TrainerModelHandler:
                             feature_network=feature_network,
                             dropout=config["dropout"],
                             act_norm=config["act_norm"],
-                            device=device).to(device)
+                            device=device).to(device).to(data_type)
 
         return model
 

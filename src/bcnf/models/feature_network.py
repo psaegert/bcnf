@@ -11,6 +11,10 @@ class FeatureNetwork(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
 
+    def to(self, *args, **kwargs):  # type: ignore
+        self.nn = self.nn.to(*args, **kwargs)  # type: ignore
+        return super().to(*args, **kwargs)
+
 
 class FullyConnectedFeatureNetwork(FeatureNetwork):
     def __init__(self,

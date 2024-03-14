@@ -20,6 +20,7 @@ data:
   break_on_impact: False
   verbose: True
 model:  # Size is automatically determined by the data size (y)
+  tensor_size: "float32"
   nested_sizes:  # List of sizes for the nested network (hidden sizes) first and last layer gets created automatically
     - 240
     - 240

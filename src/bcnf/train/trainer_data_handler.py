@@ -1,4 +1,5 @@
 import pickle
+from typing import Any
 
 import numpy as np
 import torch
@@ -12,7 +13,9 @@ class TrainerDataHandler:
     def __init__(self) -> None:
         pass
 
-    def get_data_for_training(self, config: dict) -> torch.utils.data.TensorDataset:
+    def get_data_for_training(self,
+                              config: dict,
+                              data_type: Any) -> torch.utils.data.TensorDataset:
         """
         Gts data for training the model
 
@@ -55,6 +58,10 @@ class TrainerDataHandler:
         split_tensors = [tensor.squeeze() if tensor.shape == torch.Size([5, 1]) else tensor for tensor in split_tensors]
         # Stack all tensors along dimension 1
         y = torch.stack(split_tensors, dim=1)
+
+        # Make the correct type for the data
+        X = X.to(data_type)
+        y = y.to(data_type)
 
         # Matches pairs of lables and data, so dataset[0] returns tuple of the first entry in X and y
         dataset = TensorDataset(X, y)

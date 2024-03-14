@@ -243,9 +243,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
             self.log_det_J = torch.zeros(x.shape[0]).to(self.device)
 
         for layer in self.layers:
-            print(layer)
             if isinstance(layer, ConditionalInvertibleLayer):
-                print(x.shape, y.shape, log_det_J)
                 x = layer(x, y, log_det_J)
             elif isinstance(layer, InvertibleLayer):
                 x = layer(x, log_det_J)
