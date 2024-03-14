@@ -7,6 +7,7 @@ import torch.nn as nn
 from tqdm import tqdm
 
 from bcnf.models.feature_network import FeatureNetwork
+from bcnf.utils import ParameterIndexMapping
 
 
 class InvertibleLayer(nn.Module):
@@ -177,7 +178,7 @@ class ActNorm(InvertibleLayer):
 
 
 class CondRealNVP(ConditionalInvertibleLayer):
-    def __init__(self, size: int, nested_sizes: list[int], n_blocks: int, n_conditions: int, feature_network: FeatureNetwork | None, dropout: float = 0.0, act_norm: bool = False, device: str = "cpu"):
+    def __init__(self, size: int, nested_sizes: list[int], n_blocks: int, n_conditions: int, feature_network: FeatureNetwork | None, dropout: float = 0.0, act_norm: bool = False, device: str = "cpu", parameter_index_mapping: ParameterIndexMapping = None):
         super(CondRealNVP, self).__init__()
 
         if n_conditions == 0 or feature_network is None:
@@ -191,6 +192,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
         self.n_conditions = n_conditions
         self.device = device
         self.dropout = dropout
+        self.parameter_index_mapping = parameter_index_mapping
         self.log_det_J: torch.Tensor = torch.zeros(1).to(self.device)
 
         # Create the network

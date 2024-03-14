@@ -25,8 +25,8 @@ v0:
     distribution: 'gaussian'  # 'gaussian' or 'uniform'
     min:  -5   # only for uniform
     max:  25    # only for uniform
-    mean: 10     # only for gaussian
-    std:  20    # only for gaussian
+    mean: 30     # only for gaussian
+    std:  15    # only for gaussian
 
 # w_x and w_y are sampled polar, w_z separately
 w:
@@ -105,3 +105,8 @@ cam_angle:
   max:  65       # only for uniform
   shape:  3      # only for gamma
   scale:  10     # only for gamma
+
+cam_heights:
+  distribution: uniform
+  min:  0.4        # only for uniform
+  max:  1.4        # only for uniform
