@@ -39,7 +39,7 @@ class TrainerModelHandler:
 
         feature_network = FullyConnectedFeatureNetwork(sizes=feature_network_sized,
                                                        dropout=config["dropout"],
-                                                       ).to(device).to(data_type)
+                                                       ).to(data_type).to(device)
 
         # Create the model
         model = CondRealNVP(size=data_size_primary_int,
@@ -49,10 +49,11 @@ class TrainerModelHandler:
                             feature_network=feature_network,
                             dropout=config["dropout"],
                             act_norm=config["act_norm"],
-                            device=device).to(device).to(data_type)
+                            device=device).to(data_type).to(device)
 
         return model
 
+    @staticmethod
     def inn_nll_loss(z: torch.Tensor,
                      log_det_J: torch.Tensor,
                      reduction: str = 'mean') -> torch.Tensor:

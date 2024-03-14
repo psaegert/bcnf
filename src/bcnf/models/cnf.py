@@ -238,7 +238,6 @@ class CondRealNVP(ConditionalInvertibleLayer):
         y = self.h(y)
 
         # Apply the network
-
         if log_det_J:
             self.log_det_J = torch.zeros(x.shape[0]).to(self.device)
 

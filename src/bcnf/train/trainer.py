@@ -5,8 +5,8 @@ from typing import Callable
 import torch
 from sklearn.model_selection import KFold
 from torch.utils.data import Subset
-# from torchsummary import summary
-from torchviz import make_dot
+from torchsummary import summary
+# from torchviz import make_dot
 from tqdm import tqdm
 
 # import wandb
@@ -30,7 +30,9 @@ class Trainer():
         self.model_handler = TrainerModelHandler()
         self.utilities = TrainerUtilities()
         self.loss_handler = TrainerLossHandler(val_loss_alpha=self.config["training"]["val_loss_alpha"],
-                                               val_loss_tolerance_mode=self.config["training"]["val_loss_tolerance_mode"])
+                                               val_loss_patience=self.config["training"]["val_loss_patience"],
+                                               val_loss_tolerance_mode=self.config["training"]["val_loss_tolerance_mode"],
+                                               val_loss_tolerance=self.config["training"]["val_loss_tolerance"])
         self.scheduler_creator = TrainerScheduler()
 
         # Set data type
@@ -61,7 +63,11 @@ class Trainer():
         model, dataset, loss_function, optimizer, scheduler = self._make()
 
         # Verify the model
-        # summary(model, input_size=[dataset[0][1].shape, dataset[0][0].shape])
+        # Option 1
+        summary(model, input_size=[dataset[0][1].shape, dataset[0][0].shape])
+
+        # Option 2 TODO: Fix this
+        '''
         x = dataset[0][1].to(self.device)
         y = dataset[0][0].to(self.device)
 
@@ -76,7 +82,7 @@ class Trainer():
         # Save the graph visualization as an image
         graph.render(filename="computation_graph", directory="./", format="png")
         # print(graph)
-        input("Press Enter to continue...")
+        '''
 
         self._train_kfold(model, dataset, loss_function, optimizer, scheduler)
 
