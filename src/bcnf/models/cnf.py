@@ -103,6 +103,14 @@ class ConditionalAffineCouplingLayer(ConditionalInvertibleLayer):
         return self
 
     def forward(self, x: torch.Tensor, y: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
+        # Check if x needs reshaping (i.e. if it is a 1D tensor)
+        if x.dim() == 1:
+            # Reshape x to have a batch dimension
+            x = x.unsqueeze(0)
+        if y.dim() == 1:
+            # Reshape x to have a batch dimension
+            y = y.unsqueeze(0)
+
         # Split the input into two halves
         x_a, x_b = x.chunk(2, dim=1)
 
@@ -206,7 +214,11 @@ class CondRealNVP(ConditionalInvertibleLayer):
         for _ in range(self.n_blocks - 1):
             if act_norm:
                 self.layers.append(ActNorm(self.size))
-            self.layers.append(ConditionalAffineCouplingLayer(self.size, self.nested_sizes, self.n_conditions, dropout=self.dropout, device=self.device))
+            self.layers.append(ConditionalAffineCouplingLayer(self.size,
+                                                              self.nested_sizes,
+                                                              self.n_conditions,
+                                                              dropout=self.dropout,
+                                                              device=self.device))
             self.layers.append(OrthonormalTransformation(self.size))
 
         # Add the final affine coupling layer
@@ -231,7 +243,9 @@ class CondRealNVP(ConditionalInvertibleLayer):
             self.log_det_J = torch.zeros(x.shape[0]).to(self.device)
 
         for layer in self.layers:
+            print(layer)
             if isinstance(layer, ConditionalInvertibleLayer):
+                print(x.shape, y.shape, log_det_J)
                 x = layer(x, y, log_det_J)
             elif isinstance(layer, InvertibleLayer):
                 x = layer(x, log_det_J)
