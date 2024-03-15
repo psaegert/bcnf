@@ -1,5 +1,6 @@
 import datetime
 import time
+from copy import deepcopy
 from typing import Callable
 
 import torch
@@ -10,7 +11,7 @@ from tqdm import tqdm
 
 import wandb
 # import wandb
-from bcnf.train import TrainerDataHandler, TrainerLossHandler, TrainerModelHandler, TrainerScheduler, TrainerUtilities
+from bcnf.train import TrainerDataHandler, TrainerModelHandler, TrainerParameterHistoryHandler, TrainerScheduler, TrainerUtilities
 
 
 class Trainer():
@@ -31,10 +32,11 @@ class Trainer():
         self.data_handler = TrainerDataHandler()
         self.model_handler = TrainerModelHandler()
         self.scheduler_creator = TrainerScheduler()
-        self.loss_handler = TrainerLossHandler(val_loss_alpha=self.config["training"]["val_loss_alpha"],
-                                               val_loss_patience=self.config["training"]["val_loss_patience"],
-                                               val_loss_tolerance_mode=self.config["training"]["val_loss_tolerance_mode"],
-                                               val_loss_tolerance=self.config["training"]["val_loss_tolerance"])
+        self.history_handler = TrainerParameterHistoryHandler(
+            val_loss_alpha=self.config["training"]["val_loss_alpha"],
+            val_loss_patience=self.config["training"]["val_loss_patience"],
+            val_loss_tolerance_mode=self.config["training"]["val_loss_tolerance_mode"],
+            val_loss_tolerance=self.config["training"]["val_loss_tolerance"])
 
         self.tensor_size = self.utilities.set_data_types(tensor_size=self.config["model"]["tensor_size"])
         self.device = self.utilities.get_training_device()
@@ -42,7 +44,8 @@ class Trainer():
         print("Initialisation complete")
         print("-----------------------------------------------------------------------------")
 
-    def training_pipeline(self) -> None:
+    def training_pipeline(self) -> tuple[list[torch.nn.Module],
+                                         list[dict]]:
         # tell wandb to get started
         with wandb.init(project=self.project_name,  # type: ignore
                         config=self.config.as_dict()):  # type: ignore
@@ -57,11 +60,13 @@ class Trainer():
             print("\nCreated all nessesary objects\n")
 
             if (self.config["training"]["cross_validation"]):
-                model = self._train_kfold(model, dataset, loss_function, optimizer, scheduler)
+                models, histories = self._train_kfold(model, dataset, loss_function, optimizer, scheduler)
             else:
-                model = self._normal_training(model, dataset, loss_function, optimizer, scheduler)
+                model, history = self._normal_training(model, dataset, loss_function, optimizer, scheduler)
+                models = [model]
+                histories = [history]
 
-        return model
+        return models, histories
 
     def _make(self) -> tuple[torch.nn.Module,
                              torch.utils.data.TensorDataset,
@@ -102,16 +107,21 @@ class Trainer():
                      dataset: torch.utils.data.TensorDataset,
                      loss_function: Callable,
                      optimizer: torch.optim.Optimizer,
-                     scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau) -> torch.nn.Module:
+                     scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau) -> tuple[list[torch.nn.Module],
+                                                                                     list[dict]]:
 
         # Train the model with k-fold cross-validation
         kf = KFold(n_splits=self.config["training"]["n_folds"],
                    shuffle=self.config["training"]["shuffle"],
                    random_state=self.config["training"]["random_state"])
-        self.fold_metrics: list = []
 
+        models = []
+        fold_metrics: list = []
+
+        current_fold = 0
         indices = list(range(len(dataset)))
         for train_index, val_index in kf.split(indices):
+            current_fold += 1
             train_subset = Subset(dataset, train_index)
             val_subset = Subset(dataset, val_index)
 
@@ -125,22 +135,36 @@ class Trainer():
                                                              pin_memory=self.config["training"]["pin_memory"],
                                                              num_workers=self.config["training"]["num_workers"])
 
-            # and use them to train the model
-            model = self._train(model,
-                                train_loader,
-                                test_loader,
-                                loss_function,
-                                optimizer,
-                                scheduler)
+            # Make a deep copy of the model for this fold
+            model_copy = deepcopy(model)
 
-        return model
+            # Reinstantiate the history handler for this fold
+            self.history_handler = TrainerParameterHistoryHandler(
+                val_loss_alpha=self.config["training"]["val_loss_alpha"],
+                val_loss_patience=self.config["training"]["val_loss_patience"],
+                val_loss_tolerance_mode=self.config["training"]["val_loss_tolerance_mode"],
+                val_loss_tolerance=self.config["training"]["val_loss_tolerance"],
+                fold=current_fold)
+
+            # and use them to train the model
+            model_copy, history = self._train(model_copy,
+                                              train_loader,
+                                              test_loader,
+                                              loss_function,
+                                              optimizer,
+                                              scheduler)
+
+            models.append(model_copy)
+            fold_metrics.append(history)
+
+        return models, fold_metrics
 
     def _normal_training(self,
                          model: torch.nn.Module,
                          dataset: torch.utils.data.TensorDataset,
                          loss_function: Callable,
                          optimizer: torch.optim.Optimizer,
-                         scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau) -> torch.nn.Module:
+                         scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau) -> tuple[torch.nn.Module, dict]:
         """
         Train the model on the given dataset once
 
@@ -161,6 +185,8 @@ class Trainer():
         -------
         model : torch.nn.Module
             The trained model
+        hisory : dict
+            The parameter history of the training
         """
         # Split the dataset
         train_subset, val_subset = self.data_handler.split_dataset(dataset,
@@ -177,14 +203,14 @@ class Trainer():
                                                          num_workers=self.config["training"]["num_workers"])
 
         # and use them to train the model
-        model = self._train(model,
-                            train_loader,
-                            test_loader,
-                            loss_function,
-                            optimizer,
-                            scheduler)
+        model, history = self._train(model,
+                                     train_loader,
+                                     test_loader,
+                                     loss_function,
+                                     optimizer,
+                                     scheduler)
 
-        return model
+        return model, history
 
     def _train(self,
                model: torch.nn.Module,
@@ -192,7 +218,7 @@ class Trainer():
                val_loader: torch.utils.data.DataLoader,
                loss_function: torch.nn.Module,
                optimizer: torch.optim.Optimizer,
-               scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau) -> torch.nn.Module:
+               scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau) -> tuple[torch.nn.Module, dict]:
         """
         Train the model on given dataloaders for training and validation
 
@@ -210,11 +236,15 @@ class Trainer():
             The optimizer to use
         scheduler : torch.optim.lr_scheduler.ReduceLROnPlateau
             The scheduler to use
+        current_fold : int
+            The current fold of the k-fold cross-validation
 
         Returns
         -------
         model : torch.nn.Module
             The trained model
+        parameter_hist : dict
+            The parameter history of the training
         """
 
         '''
@@ -228,12 +258,12 @@ class Trainer():
 
         # Train the model
         for epoch in pbar:
+            self.history_handler.update_epoch(epoch)
             # ---------------- TRAINING MODE -------------------
             model.train()
             train_loss = 0.0
 
-            for i, (x, y) in enumerate(train_loader):
-                # Add the loss to the total
+            for x, y in train_loader:
                 train_loss += self._train_batch(x,
                                                 y,
                                                 model,
@@ -242,9 +272,6 @@ class Trainer():
 
             # Calculate the average train loss
             train_loss /= len(train_loader)
-            # Add the loss to the history
-            self.loss_handler.loss_history["train"].append((epoch + 1, train_loss))
-            wandb.log({"epoch": epoch, "train_loss": train_loss}, step=epoch)  # type: ignore
 
             # ---------------- VALIDATION MODE -------------------
             model.eval()
@@ -252,8 +279,7 @@ class Trainer():
                 val_loss = 0.0
 
                 for x, y in val_loader:
-                    # Add the loss to the total
-                    val_loss += self._validate_epoch(x,
+                    val_loss += self._validate_batch(x,
                                                      y,
                                                      model,
                                                      loss_function)
@@ -261,55 +287,43 @@ class Trainer():
                 # Calculate the average loss
                 val_loss /= len(val_loader)
 
-            # Add the loss to the history
-            self.loss_handler.loss_history["val"].append((epoch + 1, val_loss))
-            wandb.log({"epoch": epoch, "val_loss": val_loss}, step=epoch)  # type: ignore
+            self.history_handler.update_rolling_validation_loss(val_loss)
 
-            # Update the rolling average of the validation loss
-            if self.loss_handler.val_loss_rolling_avg is None:
-                self.loss_handler.val_loss_rolling_avg = val_loss
-            else:
-                self.loss_handler.val_loss_rolling_avg = self.loss_handler.val_loss_alpha * \
-                    self.loss_handler.val_loss_rolling_avg + \
-                    (1 - self.loss_handler.val_loss_alpha) * val_loss
+            # Update the parameter history
+            self.history_handler.update_parameter_history(parameter="train_loss",
+                                                          value=train_loss)
+            self.history_handler.update_parameter_history(parameter="val_loss",
+                                                          value=val_loss)
+            self.history_handler.update_parameter_history(parameter="lr",
+                                                          value=optimizer.param_groups[0]['lr'])
+            self.history_handler.update_parameter_history(parameter="distance_to_last_best_val_loss",
+                                                          value=epoch - self.history_handler.best_val_epoch)
+            self.history_handler.update_parameter_history(parameter="time",
+                                                          value=datetime.datetime.now().timestamp())
 
-            # Add the learning rate and early stop counter to the history
-            self.loss_handler.loss_history["lr"].append((epoch + 1, optimizer.param_groups[0]['lr']))
-            self.loss_handler.loss_history["early_stop_counter"].append((epoch + 1, epoch - self.loss_handler.best_val_epoch))
-            self.loss_handler.loss_history["time"].append((epoch + 1, datetime.datetime.now().timestamp()))
-
-            pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f} (avg: {self.loss_handler.val_loss_rolling_avg:.4f}, min: {self.loss_handler.best_val_loss:.4f}) | lr: {optimizer.param_groups[0]['lr']:.2e} - Patience: {epoch - self.loss_handler.best_val_epoch}/{self.loss_handler.val_loss_patience}")
+            # Update the description of the progress bar
+            pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f} (avg: {self.history_handler.val_loss_rolling_avg:.4f}, min: {self.history_handler.best_val_loss:.4f}) | lr: {optimizer.param_groups[0]['lr']:.2e} - Patience: {epoch - self.history_handler.best_val_epoch}/{self.history_handler.val_loss_patience}")
 
             # Step the scheduler
             if scheduler is not None:
                 if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                    scheduler.step(self.loss_handler.val_loss_rolling_avg)
+                    scheduler.step(self.history_handler.val_loss_rolling_avg)
                 else:
                     scheduler.step()
 
-            # Check if the validation loss did not decrease in the last `val_loss_patience` epochs
-            if self.loss_handler.val_loss_patience is not None and self.loss_handler.val_loss_rolling_avg is not None:
-                if self.loss_handler.val_loss_tolerance_mode == "rel":
-                    if self.loss_handler.val_loss_rolling_avg < self.loss_handler.best_val_loss * (1 - self.loss_handler.val_loss_tolerance):
-                        best_val_loss = self.loss_handler.val_loss_rolling_avg
-                        best_val_epoch = epoch
-                elif self.loss_handler.val_loss_tolerance_mode == "abs":
-                    if self.loss_handler.val_loss_rolling_avg < best_val_loss - self.loss_handler.val_loss_tolerance:
-                        best_val_loss = self.loss_handler.val_loss_rolling_avg
-                        best_val_epoch = epoch
+                self.history_handler.update_scheduler_parameters()
 
-                if (epoch - best_val_epoch) >= self.loss_handler.val_loss_patience:
-                    self.loss_handlerloss_history["stop_reason"] = "val_loss_plateau"  # type: ignore
-                    return self.loss_handler.loss_history
+                if (self.history_handler.parameter_history["distance_to_last_best_val_loss"][-1][1]) >= self.history_handler.val_loss_patience:
+                    self.history_handler.loss_history["stop_reason"] = "val_loss_plateau"
+                    return model, self.history_handler.parameter_history
 
             # Check if the timeout has been reached
             if self.config["training"]["timeout"] is not None and time.time() - start_time > self.config["training"]["timeout"]:
-                self.loss_handlerloss_history["stop_reason"] = "timeout"  # type: ignore
-                return self.loss_handler.loss_history
+                self.history_handler.loss_history["stop_reason"] = "timeout"
+                return model, self.history_handler.parameter_history
 
-        self.loss_handler.loss_history["stop_reason"] = "max_epochs"  # type: ignore
-
-        return model
+        self.history_handler.parameter_history["stop_reason"] = "max_epochs"
+        return model, self.history_handler.parameter_history
 
     def _train_batch(self,
                      x: torch.Tensor,
@@ -334,7 +348,7 @@ class Trainer():
 
         return loss.item()
 
-    def _validate_epoch(self,
+    def _validate_batch(self,
                         x: torch.Tensor,
                         y: torch.Tensor,
                         model: torch.nn.Module,
