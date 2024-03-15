@@ -8,6 +8,10 @@ class FeatureNetwork(nn.Module):
     def __init__(self) -> None:
         super(FeatureNetwork, self).__init__()
 
+    @property
+    def n_params(self) -> int:
+        return sum(p.numel() for p in self.parameters())
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
 

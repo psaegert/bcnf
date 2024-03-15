@@ -1,14 +1,25 @@
+import concurrent.futures
+
 import numpy as np
 import torch
 from tqdm import tqdm
 
 from bcnf.models.cnf import CondRealNVP
 from bcnf.simulation.physics import physics_ODE_simulation
+from bcnf.utils import ParameterIndexMapping
 
 
-def resimulate(model: CondRealNVP, T: int, dt: float, data_dict: dict[str, list], y_hat: torch.Tensor | None = None, X: torch.Tensor | None = None, m_samples: int = 1000, break_on_impact: bool = False, verbose: bool = True) -> np.ndarray:
+def resimulate_trajectory(args: tuple[int, int, float, bool, torch.Tensor, dict[str, float], ParameterIndexMapping]) -> np.ndarray:
+    j, T, dt, break_on_impact, y_hat_i, fixed_parameters, parameter_index_mapping = args
+    return physics_ODE_simulation(
+        T=T, dt=dt, break_on_impact=break_on_impact,
+        **parameter_index_mapping.dictify(y_hat_i),  # Learned parameters
+        **fixed_parameters  # Fixed parameters
+    )
+
+
+def resimulate(model: CondRealNVP, T: int, dt: float, data_dict: dict[str, list], y_hat: torch.Tensor | None = None, X: torch.Tensor | None = None, m_samples: int = 1000, break_on_impact: bool = False, n_procs: int = None, verbose: bool = True) -> np.ndarray:
     if y_hat is None:
-        # Sample parameters from the model
         if X is None:
             raise ValueError("Either y_hat or X must be provided")
         y_hat = model.sample(n_samples=m_samples, y=X, verbose=verbose).cpu().numpy()  # (M, N, D)
@@ -21,13 +32,19 @@ def resimulate(model: CondRealNVP, T: int, dt: float, data_dict: dict[str, list]
 
     X_resimulation_list: list[list] = []
 
-    for i in range(N):
-        X_resimulation_list.append([])
-        for j in tqdm(range(M), disable=not verbose, desc=f"Resimulating trajectory {i+1}/{N}"):
-            X_resimulation_list[i].append(physics_ODE_simulation(
-                T=T, dt=dt, break_on_impact=break_on_impact,
-                **model.parameter_index_mapping.dictify(y_hat[j, i]),  # Learned parameters
-                **{k: data_dict[k][i] for k in data_dict.keys() if k not in model.parameter_index_mapping.parameters})  # Fixed parameters
-            )
+    pbar = tqdm(total=N, desc="Resimulating trajectories", disable=not verbose)
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=n_procs) as executor:
+        for i in range(N):
+            X_resimulation_list.append([])
+            args_list = [(j, T, dt, break_on_impact, y_hat[j, i], {k: data_dict[k][i] for k in data_dict.keys() if k not in model.parameter_index_mapping.parameters}, model.parameter_index_mapping) for j in range(M)]
+
+            if verbose:
+                results = list(executor.map(resimulate_trajectory, args_list), total=M, desc=f"Resimulating trajectory {i+1}/{N}")  # type: ignore
+            else:
+                results = executor.map(resimulate_trajectory, args_list)
+
+            X_resimulation_list[i].extend(results)
+            pbar.update(1)
 
     return np.array(X_resimulation_list)

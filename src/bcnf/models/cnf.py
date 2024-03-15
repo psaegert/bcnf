@@ -14,6 +14,10 @@ class InvertibleLayer(nn.Module):
     log_det_J: float | torch.Tensor | None
     n_conditions: int
 
+    @property
+    def n_params(self) -> int:
+        return sum(p.numel() for p in self.parameters())
+
     @abstractmethod
     def forward(self, x: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
         pass
@@ -26,6 +30,10 @@ class InvertibleLayer(nn.Module):
 class ConditionalInvertibleLayer(nn.Module):
     log_det_J: float | torch.Tensor | None
     n_conditions: int
+
+    @property
+    def n_params(self) -> int:
+        return sum(p.numel() for p in self.parameters())
 
     @abstractmethod
     def forward(self, x: torch.Tensor, y: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
@@ -61,6 +69,10 @@ class ConditionalNestedNeuralNetwork(nn.Module):
                     self.nn.append(nn.Dropout(dropout))
 
             self.nn.append(nn.Linear(sizes[-2], sizes[-1]))
+
+    @property
+    def n_params(self) -> int:
+        return sum(p.numel() for p in self.parameters())
 
     def to(self, device: str) -> "ConditionalNestedNeuralNetwork":  # type: ignore
         super().to(device)
