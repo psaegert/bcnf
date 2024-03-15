@@ -1,5 +1,6 @@
 import os
 import pickle
+from typing import Callable
 
 import numpy as np
 from dynaconf import Dynaconf
@@ -8,6 +9,101 @@ from tqdm import tqdm
 from bcnf.simulation.camera import record_trajectory
 from bcnf.simulation.physics import calculate_point_of_impact, physics_ODE_simulation
 from bcnf.utils import get_dir
+
+
+def generate_data_old(
+        x0_pdf: Callable = lambda size: np.random.uniform(0, 10, size=size),
+        v0_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size) + np.array([0, 0, 9]),
+        g_pdf: Callable = lambda size: np.random.normal(9.81, 0.1, size=size) * np.array([0, 0, -1]),
+        w_pdf: Callable = lambda size: np.random.normal(0, 1, size=size) * np.array([1, 1, 0.1]),
+        b_pdf: Callable = lambda size: np.random.uniform(0, 1, size=size),
+        m_pdf: Callable = lambda size: np.random.uniform(0.5, 1.5, size=size),
+        rho_pdf: Callable = lambda size: np.random.uniform(1.0, 1.5, size=size),
+        r_pdf: Callable = lambda size: np.random.uniform(0.05, 0.15, size=size),
+        a_pdf: Callable = lambda size: np.random.uniform(0, 0, size=size),
+        T: float = 2.0,
+        dt: float = 1 / 30,
+        N: int = 1,
+        break_on_impact: bool = False) -> dict[str, np.ndarray]:
+    """
+    Create a dataset from prior parameter distributions and the simulation model.
+
+    Parameters
+    ----------
+    x0_pdf : function
+        A function that returns a sample from the prior distribution of the initial position.
+    v0_pdf : function
+        A function that returns a sample from the prior distribution of the initial velocity.
+    g_pdf : function
+        A function that returns a sample from the prior distribution of the gravitational acceleration.
+    w_pdf : function
+        A function that returns a sample from the prior distribution of the wind.
+    b_pdf : function
+        A function that returns a sample from the prior distribution of the drag coefficient.
+    m_pdf : function
+        A function that returns a sample from the prior distribution of the mass.
+    a_pdf : function
+        A function that returns a sample from the prior distribution of the thrust.
+    T : float
+        The total run time in seconds.
+    dt : float
+        The time step.
+    N : int
+        The number of simulations to run.
+
+    Returns
+    -------
+    X : array
+        The simulated data, shape (N, int(T / dt), 3).
+    y : array
+        The parameters used to simulate the data, shape (N, 14).
+    """
+
+    x0 = x0_pdf(size=(N, 3))
+    v0 = v0_pdf(size=(N, 3))
+    g = g_pdf(size=(N, 3))
+    w = w_pdf(size=(N, 3))
+    b = b_pdf(size=(N,))
+    m = m_pdf(size=(N,))
+    rho = rho_pdf(size=(N,))
+    r = r_pdf(size=(N,))
+    a = a_pdf(size=(N, 3))
+
+    # Run the simulation
+    X = np.zeros((N, int(T / dt), 3))
+    for i in tqdm(range(N)):
+        # X[i] = physics_ODE_simulation(x0[i], v0[i], g[i], w[i], b[i], m[i], rho[i], r[i], a[i], T, dt, break_on_impact=break_on_impact)
+        X[i] = physics_ODE_simulation(
+            x0_x=x0[i, 0], x0_y=x0[i, 1], x0_z=x0[i, 2],
+            v0_x=v0[i, 0], v0_y=v0[i, 1], v0_z=v0[i, 2],
+            g_x=g[i, 0], g_y=g[i, 1], g_z=g[i, 2],
+            w_x=w[i, 0], w_y=w[i, 1], w_z=w[i, 2],
+            b=b[i], m=m[i], rho=rho[i], r=r[i], a_x=a[i, 0], a_y=a[i, 1], a_z=a[i, 2],
+            T=T, dt=dt, break_on_impact=break_on_impact)
+
+    # Stack the parameters into a single vector for each simulation
+    return {
+        'trajectory': X,
+        'x0_x': x0[:, 0],
+        'x0_y': x0[:, 1],
+        'x0_z': x0[:, 2],
+        'v0_x': v0[:, 0],
+        'v0_y': v0[:, 1],
+        'v0_z': v0[:, 2],
+        'g_x': g[:, 0],
+        'g_y': g[:, 1],
+        'g_z': g[:, 2],
+        'w_x': w[:, 0],
+        'w_y': w[:, 1],
+        'w_z': w[:, 2],
+        'b': b,
+        'm': m,
+        'rho': rho,
+        'r': r,
+        'a_x': a[:, 0],
+        'a_y': a[:, 1],
+        'a_z': a[:, 2]
+    }
 
 
 def sample_from_config(values: dict
@@ -69,7 +165,7 @@ def sample_ballistic_parameters(
     if config['x0']['x0_xy']['distribution'] == 'gaussian':
         r_x = np.sqrt(np.abs(sample_from_config(config['x0']['x0_xy']))) * config['x0']['x0_xy']['std'] + config['x0']['x0_xy']['mean']
     elif config['x0']['x0_xy']['distribution'] == 'uniform':
-        r_x = sample_from_config(config['x0']['x0_xy'])
+        r_x = np.sqrt(sample_from_config(config['x0']['x0_xy']))
 
     phi = np.random.uniform(0, 2 * np.pi)
 
@@ -202,6 +298,7 @@ def generate_data(
         num_cams: int = 2,
         config_file: str = f'{get_dir()}/configs/config.yaml',
         break_on_impact: bool = True,
+        do_filter: bool = True,
         verbose: bool = False) -> dict[str, list]:
 
     if output_type not in ['render', 'trajectory', 'parameters']:
@@ -223,7 +320,7 @@ def generate_data(
         parameters = sample_ballistic_parameters(num_cams=num_cams, cfg_file=config_file)
 
         # first check: will the ball actually come down again?
-        if parameters['g_z'] + parameters['a_z'] > 0:
+        if parameters['g_z'] + parameters['a_z'] > 0 and do_filter:
             rejected_count['runaway'] += 1
             pbar.set_postfix(
                 accepted=accepted_count,
@@ -235,7 +332,7 @@ def generate_data(
             continue
 
         # second check: is x0_z > 0?
-        if parameters['x0_z'] < 0:
+        if parameters['x0_z'] < 0 and do_filter:
             rejected_count['start_underground'] += 1
             pbar.set_postfix(
                 accepted=accepted_count,
@@ -252,7 +349,7 @@ def generate_data(
         # Check that poi and x0 have the same shape
         distance = float(np.linalg.norm(poi - np.array([parameters['x0_x'], parameters['x0_y'], parameters['x0_z']])))
 
-        if not accept_traveled_distance(distance):
+        if not accept_traveled_distance(distance) and do_filter:
             rejected_count['distance'] += 1
             pbar.set_postfix(
                 accepted=accepted_count,
@@ -275,7 +372,7 @@ def generate_data(
 
         vis = np.sum([np.sum(cam) for cam in cams]) / (len(cams) * len(cams[0]))
 
-        if not accept_visibility(vis):
+        if not accept_visibility(vis) and do_filter:
             rejected_count['visibility'] += 1
             pbar.set_postfix(
                 accepted=accepted_count,

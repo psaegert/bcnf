@@ -155,7 +155,7 @@ class OrthonormalTransformation(ConditionalInvertibleLayer):
         self.log_det_J: float = 0
 
         # Create the random orthonormal matrix via QR decomposition
-        self.orthonormal_matrix: torch.Tensor = torch.linalg.qr(torch.randn(input_size, input_size))[0]
+        self.orthonormal_matrix: torch.Tensor = nn.Parameter(torch.linalg.qr(torch.randn(input_size, input_size))[0], requires_grad=False)
         self.orthonormal_matrix.requires_grad = False
 
     def to(self, device: str) -> "OrthonormalTransformation":  # type: ignore
