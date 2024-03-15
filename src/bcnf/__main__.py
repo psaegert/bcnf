@@ -28,7 +28,8 @@ def main(argv: str = None) -> None:
             from bcnf.train.trainer import Trainer
 
             config_file_path = f'{get_dir()}/configs/trainer_config.yaml'
-            config = Dynaconf(settings_files=config_file_path)
+            config = Dynaconf(settings_files=config_file_path,
+                              lowercase_read=True)
 
             trainer = Trainer(config=config, project_name='bcnf-test')
 

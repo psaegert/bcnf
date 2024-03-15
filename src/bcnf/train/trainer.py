@@ -3,22 +3,23 @@ import time
 from typing import Callable
 
 import torch
+from dynaconf import Dynaconf
 from sklearn.model_selection import KFold
 from torch.utils.data import Subset
-from torchsummary import summary
-# from torchviz import make_dot
 from tqdm import tqdm
 
+import wandb
 # import wandb
 from bcnf.train import TrainerDataHandler, TrainerLossHandler, TrainerModelHandler, TrainerScheduler, TrainerUtilities
 
 
 class Trainer():
     def __init__(self,
-                 config: dict,
+                 config: Dynaconf,
                  project_name: str = None):
 
         self.config = config
+
         if project_name is None:
             raise ValueError("project_name is not set. Please use the project_name parameter to set the project name.")
         else:
@@ -35,16 +36,7 @@ class Trainer():
                                                val_loss_tolerance=self.config["training"]["val_loss_tolerance"])
         self.scheduler_creator = TrainerScheduler()
 
-        # Set data type
-        print("Setting data type to: ", self.config["model"]["tensor_size"])
-        if self.config["model"]["tensor_size"] == "float32":
-            self.tensor_size = torch.float32
-        elif self.config["model"]["tensor_size"] == "float64":
-            self.tensor_size = torch.float64
-        else:
-            print("tensor_size was not correctly specified in the config file, using default value 'float32'")
-            self.tensor_size = torch.float32
-
+        self.tensor_size = self.utilities.set_data_types(tensor_size=self.config["model"]["tensor_size"])
         self.device = self.utilities.get_training_device()
 
         print("Initialisation complete")
@@ -52,39 +44,18 @@ class Trainer():
 
     def training_pipeline(self) -> None:
         # tell wandb to get started
-        '''
-        with wandb.init(project=self.project_name,
-                        config=self.config):
-        '''
-        # access all HPs through wandb.config, so logging matches execution!
-        # self.config = wandb.config
+        with wandb.init(project=self.project_name,  # type: ignore
+                        config=self.config.as_dict()):  # type: ignore
 
-        # make the model, data, and optimization problem
-        model, dataset, loss_function, optimizer, scheduler = self._make()
+            # access all HPs through wandb.config, so logging matches execution!
+            self.config = wandb.config  # type: ignore
+            # Convert wandb config keys to lowercase
+            self.config = {k.lower(): v for k, v in wandb.config.as_dict().items()}  # type: ignore
 
-        # Verify the model
-        # Option 1
-        summary(model, input_size=[dataset[0][1].shape, dataset[0][0].shape])
+            # make the model, data, and optimization problem
+            model, dataset, loss_function, optimizer, scheduler = self._make()
 
-        # Option 2 TODO: Fix this
-        '''
-        x = dataset[0][1].to(self.device)
-        y = dataset[0][0].to(self.device)
-
-        print("Input sizes for the model:")
-        print("Input to primary NF:", x.shape, x.dtype)
-        print("Input to conditioning network:", y.shape, y.dtype)
-
-        output = model.forward(x, y)
-        output = output.to("cpu")
-        model = model.to("cpu")
-        graph = make_dot(output, params=dict(model.named_parameters()))
-        # Save the graph visualization as an image
-        graph.render(filename="computation_graph", directory="./", format="png")
-        # print(graph)
-        '''
-
-        self._train_kfold(model, dataset, loss_function, optimizer, scheduler)
+            self._train_kfold(model, dataset, loss_function, optimizer, scheduler)
 
         return model
 
@@ -103,6 +74,14 @@ class Trainer():
                                               data_size_feature=data[0][0].shape,
                                               device=self.device,
                                               data_type=self.tensor_size)
+
+        # Verify the model
+        if self.config["training"]["verify_model"]:
+            print("Please verify the model")
+            self.model_handler.verify_model(model, data[0])
+            input("Press Enter to continue...")
+        else:
+            print("Model verification skipped")
 
         # loss and optimizer
         loss_function = self.model_handler.inn_nll_loss

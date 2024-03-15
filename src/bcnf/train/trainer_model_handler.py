@@ -1,8 +1,11 @@
 from typing import Any
 
 import torch
+from torchsummary import summary
 
 from bcnf.models import CondRealNVP, FullyConnectedFeatureNetwork
+
+# from torchviz import make_dot
 
 
 class TrainerModelHandler:
@@ -78,3 +81,28 @@ class TrainerModelHandler:
             return torch.mean(0.5 * torch.sum(z**2, dim=1) - log_det_J)
         else:
             return 0.5 * torch.sum(z**2, dim=1) - log_det_J
+
+    def verify_model(self,
+                     model: torch.nn.Module,
+                     test_data: Any) -> None:
+        # Verify the model
+        # Option 1
+        summary(model, input_size=[test_data[1].shape, test_data[0].shape])
+
+        # Option 2 TODO: Fix this
+        '''
+        x = dataset[0][1].to(self.device)
+        y = dataset[0][0].to(self.device)
+
+        print("Input sizes for the model:")
+        print("Input to primary NF:", x.shape, x.dtype)
+        print("Input to conditioning network:", y.shape, y.dtype)
+
+        output = model.forward(x, y)
+        output = output.to("cpu")
+        model = model.to("cpu")
+        graph = make_dot(output, params=dict(model.named_parameters()))
+        # Save the graph visualization as an image
+        graph.render(filename="computation_graph", directory="./", format="png")
+        # print(graph)
+        '''

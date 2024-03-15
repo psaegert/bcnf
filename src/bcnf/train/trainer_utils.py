@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 import torch
 
@@ -33,6 +34,31 @@ class TrainerUtilities():
         print(f"Using device: {device}")
 
         return device
+
+    def set_data_types(self,
+                       tensor_size: str) -> Any:
+        """
+        Set the default data type to be used for training and models.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        # Set data type
+        print("Setting data type to: ", tensor_size)
+        if tensor_size == "float32":
+            torch_tensor_size = torch.float32
+        elif tensor_size == "float64":
+            torch_tensor_size = torch.float64
+        else:
+            print("tensor_size was not correctly specified in the config file, using default value 'float32'")
+            torch_tensor_size = torch.float32
+
+        return torch_tensor_size
 
     def wandb_login(self, filename: str = "wandbAPIKey.txt") -> None:
         """
