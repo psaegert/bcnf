@@ -190,13 +190,18 @@ class ActNorm(InvertibleLayer):
 
 
 class CondRealNVP(ConditionalInvertibleLayer):
-    def __init__(self, size: int, nested_sizes: list[int], n_blocks: int, n_conditions: int, feature_network: FeatureNetwork | None, dropout: float = 0.0, act_norm: bool = False, device: str = "cpu", parameter_index_mapping: ParameterIndexMapping = None):
+    def __init__(self, size: int, nested_sizes: list[int], n_blocks: int, n_conditions: int, feature_network: FeatureNetwork | None = None, time_series_network: FeatureNetwork | None = None, dropout: float = 0.0, act_norm: bool = False, device: str = "cpu", parameter_index_mapping: ParameterIndexMapping = None):
         super(CondRealNVP, self).__init__()
 
         if n_conditions == 0 or feature_network is None:
-            self.h = nn.Identity()
+            self.feature_network = nn.Identity()
         else:
-            self.h = feature_network
+            self.feature_network = feature_network
+
+        if n_conditions == 0 or time_series_network is None:
+            self.time_series_network = nn.Identity()
+        else:
+            self.time_series_network = time_series_network
 
         self.size = size
         self.nested_sizes = nested_sizes
@@ -229,10 +234,10 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
     def forward(self, x: torch.Tensor, y: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
         # Apply the feature network to y
-        y = self.h(y)
+        y = self.feature_network(y)
+        y = self.time_series_network(y)
 
         # Apply the network
-
         if log_det_J:
             self.log_det_J = torch.zeros(x.shape[0]).to(self.device)
 
@@ -251,7 +256,8 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
     def inverse(self, z: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         # Apply the feature network to y
-        y = self.h(y)
+        y = self.feature_network(y)
+        y = self.time_series_network(y)
 
         # Apply the network in reverse
         for layer in reversed(self.layers):
@@ -270,6 +276,9 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
         with torch.no_grad():
             for m in tqdm(m_batch_sizes, desc="Sampling", disable=not verbose):
+                if m == 0:
+                    # Skip empty batch sizes
+                    continue
                 y_hat_list.append(self._sample(m, y=y, outer=True, sigma=sigma).to(output_device))
 
         y_hat = torch.cat(y_hat_list, dim=0)
