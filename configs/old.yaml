@@ -1,17 +1,13 @@
 # x0_x and x0_y are sampled polar, x0_z separately
 x0:
   x0_xy:
-    distribution: 'gaussian'  # 'gaussian' or 'uniform'
+    distribution: 'uniform'  # 'gaussian' or 'uniform'
     min:  0     # only for uniform
     max:  10    # only for uniform
-    mean: 0     # only for gaussian
-    std:  30    # only for gaussian
   x0_z:
-    distribution: 'gaussian'  # 'gaussian' or 'uniform'
-    min:  1     # only for uniform
-    max:  2     # only for uniform
-    mean: 1.5   # only for gaussian
-    std:  0.33  # only for gaussian
+    distribution: 'uniform'  # 'gaussian' or 'uniform'
+    min:  0     # only for uniform
+    max:  1     # only for uniform
 
 # v0_x and v0_y are sampled polar, v0_z separately
 v0:
@@ -19,29 +15,21 @@ v0:
     distribution: 'uniform'  # 'gaussian' or 'uniform'
     min:  -10   # only for uniform
     max:  10    # only for uniform
-    mean: 0     # only for gaussian
-    std:  20    # only for gaussian
   v0_z:
-    distribution: 'uniform'  # 'gaussian' or 'uniform'
-    min:  -1   # only for uniform
-    max:  10    # only for uniform
-    mean: 10     # only for gaussian
-    std:  15    # only for gaussian
+    distribution: 'gaussian'  # 'gaussian' or 'uniform'
+    mean: 7   # only for uniform
+    std:  3    # only for uniform
 
 # w_x and w_y are sampled polar, w_z separately
 w:
   w_xy:
-    distribution: 'gaussian'  # 'gaussian' or 'uniform'
-    min:  -20   # only for uniform
-    max:  20    # only for uniform
-    mean: 0     # only for gaussian
-    std:  15    # only for gaussian
+    distribution: 'uniform'  # 'gaussian' or 'uniform'
+    min: 0     # only for gaussian
+    max: 10    # only for gaussian
   w_z:
     distribution: 'gaussian'  # 'gaussian' or 'uniform'
-    min:  -10   # only for uniform
-    max:  10    # only for uniform
     mean: 0     # only for gaussian
-    std:  5     # only for gaussian
+    std:  1     # only for gaussian
 
 # a_x, a_y and a_z are sampled together
 a:
@@ -60,32 +48,24 @@ g:
   scale:  1     # only for gamma
 
 rho:
-  distribution: 'gamma'  # 'gamma' or 'uniform'
-  min:  0         # only for uniform
+  distribution: 'uniform'  # 'gamma' or 'uniform'
+  min:  1         # only for uniform
   max:  1.5       # only for uniform
-  shape:  2       # only for gamma
-  scale:  0.35    # only for gamma
 
 r_ball:
-  distribution: 'gamma'  # 'gamma' or 'uniform'
-  min:  0.03      # only for uniform
-  max:  0.2       # only for uniform
-  shape:  3       # only for gaussian
-  scale: 0.05     # only for gaussian
+  distribution: 'uniform'  # 'gamma' or 'uniform'
+  min:  0.05      # only for uniform
+  max:  0.15       # only for uniform
 
 Cd:
-  distribution: 'gamma'  # 'gamma' or 'uniform'
+  distribution: 'uniform'  # 'gamma' or 'uniform'
   min:  0.04      # only for uniform
   max:  1.42      # only for uniform
-  shape:  2       # only for gamma
-  scale:  0.35    # only for gamma
 
 m:
-  distribution: 'gamma'  # 'gamma' or 'uniform'
-  min:  0.056      # only for uniform
-  max:  0.62       # only for uniform
-  shape:  2        # only for gamma
-  scale:  0.15     # only for gamma
+  distribution: 'uniform'  # 'gamma' or 'uniform'
+  min:  0.5     # only for uniform
+  max:  1.5       # only for uniform
 
 cam_radian:
   distribution: 'uniform'
