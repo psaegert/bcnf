@@ -37,7 +37,9 @@ model:  # Size is automatically determined by the data size (y)
       - 101
     n_conditions: 101 # Size of the outpout of the feature network (Condition size C)
 training:
-  verify_model: True # Stop the program and let the user check the model before training
+  verify: True # Stop the program and let the user check the model before training
+  cross_validation: False  # Use cross-validation
+  validation_split: 0.2
   val_loss_alpha: 0.95  # TODO: Find out what this means
   val_loss_tolerance_mode: "rel"
   val_loss_patience: 200
@@ -52,4 +54,6 @@ training:
   n_epochs: 100  # Number of epochs to train for using one fold configuration
   verbose: True  # Verbose mode for the training loop
   timeout: 3600  # 1 hour
+  wandb:
+    model_log_frequency: 10
 

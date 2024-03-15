@@ -27,14 +27,14 @@ class Trainer():
 
         # Initialize the data handler, model handler, and utilities
         print("Initializing Trainer...")
+        self.utilities = TrainerUtilities()
         self.data_handler = TrainerDataHandler()
         self.model_handler = TrainerModelHandler()
-        self.utilities = TrainerUtilities()
+        self.scheduler_creator = TrainerScheduler()
         self.loss_handler = TrainerLossHandler(val_loss_alpha=self.config["training"]["val_loss_alpha"],
                                                val_loss_patience=self.config["training"]["val_loss_patience"],
                                                val_loss_tolerance_mode=self.config["training"]["val_loss_tolerance_mode"],
                                                val_loss_tolerance=self.config["training"]["val_loss_tolerance"])
-        self.scheduler_creator = TrainerScheduler()
 
         self.tensor_size = self.utilities.set_data_types(tensor_size=self.config["model"]["tensor_size"])
         self.device = self.utilities.get_training_device()
@@ -54,8 +54,12 @@ class Trainer():
 
             # make the model, data, and optimization problem
             model, dataset, loss_function, optimizer, scheduler = self._make()
+            print("\nCreated all nessesary objects\n")
 
-            self._train_kfold(model, dataset, loss_function, optimizer, scheduler)
+            if (self.config["training"]["cross_validation"]):
+                model = self._train_kfold(model, dataset, loss_function, optimizer, scheduler)
+            else:
+                model = self._normal_training(model, dataset, loss_function, optimizer, scheduler)
 
         return model
 
@@ -75,13 +79,14 @@ class Trainer():
                                               device=self.device,
                                               data_type=self.tensor_size)
 
-        # Verify the model
-        if self.config["training"]["verify_model"]:
-            print("Please verify the model")
+        # Verify the objects
+        if self.config["training"]["verify"]:
+            print("Please verify the model and data")
             self.model_handler.verify_model(model, data[0])
+            self.data_handler.verify_data(data)
             input("Press Enter to continue...")
         else:
-            print("Model verification skipped")
+            print("Verification skipped")
 
         # loss and optimizer
         loss_function = self.model_handler.inn_nll_loss
@@ -97,7 +102,7 @@ class Trainer():
                      dataset: torch.utils.data.TensorDataset,
                      loss_function: Callable,
                      optimizer: torch.optim.Optimizer,
-                     scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau) -> None:
+                     scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau) -> torch.nn.Module:
 
         # Train the model with k-fold cross-validation
         kf = KFold(n_splits=self.config["training"]["n_folds"],
@@ -121,12 +126,65 @@ class Trainer():
                                                              num_workers=self.config["training"]["num_workers"])
 
             # and use them to train the model
-            self._train(model,
-                        train_loader,
-                        test_loader,
-                        loss_function,
-                        optimizer,
-                        scheduler)
+            model = self._train(model,
+                                train_loader,
+                                test_loader,
+                                loss_function,
+                                optimizer,
+                                scheduler)
+
+        return model
+
+    def _normal_training(self,
+                         model: torch.nn.Module,
+                         dataset: torch.utils.data.TensorDataset,
+                         loss_function: Callable,
+                         optimizer: torch.optim.Optimizer,
+                         scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau) -> torch.nn.Module:
+        """
+        Train the model on the given dataset once
+
+        Parameters
+        ----------
+        model : torch.nn.Module
+            The model to train
+        dataset : torch.utils.data.TensorDataset
+            The dataset to train on
+        loss_function : Callable
+            The loss function to use
+        optimizer : torch.optim.Optimizer
+            The optimizer to use
+        scheduler : torch.optim.lr_scheduler.ReduceLROnPlateau
+            The scheduler to use
+
+        Returns
+        -------
+        model : torch.nn.Module
+            The trained model
+        """
+        # Split the dataset
+        train_subset, val_subset = self.data_handler.split_dataset(dataset,
+                                                                   self.config["training"]["validation_split"])
+
+        # create the dataloaders
+        train_loader = self.data_handler.make_data_loader(dataset=train_subset,
+                                                          batch_size=self.config["training"]["batch_size"],
+                                                          pin_memory=self.config["training"]["pin_memory"],
+                                                          num_workers=self.config["training"]["num_workers"])
+        test_loader = self.data_handler.make_data_loader(dataset=val_subset,
+                                                         batch_size=self.config["training"]["batch_size"],
+                                                         pin_memory=self.config["training"]["pin_memory"],
+                                                         num_workers=self.config["training"]["num_workers"])
+
+        # and use them to train the model
+        model = self._train(model,
+                            train_loader,
+                            test_loader,
+                            loss_function,
+                            optimizer,
+                            scheduler)
+
+        return model
 
     def _train(self,
                model: torch.nn.Module,
@@ -134,14 +192,43 @@ class Trainer():
                val_loader: torch.utils.data.DataLoader,
                loss_function: torch.nn.Module,
                optimizer: torch.optim.Optimizer,
-               scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau) -> None:
+               scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau) -> torch.nn.Module:
+        """
+        Train the model on given dataloaders for training and validation
 
+        Parameters
+        ----------
+        model : torch.nn.Module
+            The model to train
+        train_loader : torch.utils.data.DataLoader
+            The dataloader for the training data
+        val_loader : torch.utils.data.DataLoader
+            The dataloader for the validation data
+        loss_function : torch.nn.Module
+            The loss function to use
+        optimizer : torch.optim.Optimizer
+            The optimizer to use
+        scheduler : torch.optim.lr_scheduler.ReduceLROnPlateau
+            The scheduler to use
+
+        Returns
+        -------
+        model : torch.nn.Module
+            The trained model
+        """
+
+        '''
+        wandb.watch(model,
+                    loss_function,
+                    log="all",
+                    log_freq=self.config["training"]["wandb"]["model_log_frequency"])
+        '''
         pbar = tqdm(range(self.config["training"]["n_epochs"]), disable=not self.config["training"]["verbose"])
         start_time = time.time()
 
         # Train the model
         for epoch in pbar:
-            # TRAINING MODE
+            # ---------------- TRAINING MODE -------------------
             model.train()
             train_loss = 0.0
 
@@ -153,13 +240,13 @@ class Trainer():
                                                 optimizer,
                                                 loss_function)
 
-                # Add the loss to the history
-                self.loss_handler.loss_history["train"].append((epoch + i / len(train_loader), train_loss))
-
             # Calculate the average train loss
             train_loss /= len(train_loader)
+            # Add the loss to the history
+            self.loss_handler.loss_history["train"].append((epoch + 1, train_loss))
+            wandb.log({"epoch": epoch, "train_loss": train_loss}, step=epoch)  # type: ignore
 
-            # VALIDATION MODE
+            # ---------------- VALIDATION MODE -------------------
             model.eval()
             with torch.no_grad():
                 val_loss = 0.0
@@ -176,6 +263,7 @@ class Trainer():
 
             # Add the loss to the history
             self.loss_handler.loss_history["val"].append((epoch + 1, val_loss))
+            wandb.log({"epoch": epoch, "val_loss": val_loss}, step=epoch)  # type: ignore
 
             # Update the rolling average of the validation loss
             if self.loss_handler.val_loss_rolling_avg is None:
@@ -220,6 +308,8 @@ class Trainer():
                 return self.loss_handler.loss_history
 
         self.loss_handler.loss_history["stop_reason"] = "max_epochs"  # type: ignore
+
+        return model
 
     def _train_batch(self,
                      x: torch.Tensor,

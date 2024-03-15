@@ -3,7 +3,7 @@ from typing import Any
 
 import numpy as np
 import torch
-from torch.utils.data import TensorDataset
+from torch.utils.data import RandomSampler, Subset, TensorDataset
 
 from bcnf.simulation.sampling import generate_data
 from bcnf.train.training_data_converter import RenderConverter
@@ -120,3 +120,60 @@ class TrainerDataHandler:
                                              pin_memory=pin_memory,
                                              num_workers=num_workers)
         return loader
+
+    def verify_data(self,
+                    data: torch.utils.data.DataLoader) -> None:
+        """
+        Verify the data
+
+        Parameters
+        ----------
+        data : torch.utils.data.DataLoader
+            The data to verify
+
+        Returns
+        -------
+        None
+        """
+        print()
+        print("Verifying data:")
+        print("Feature network input shape:", data[0][0].shape)
+        print("Feature network device:", data[0][0].device)
+        print("NF network input shape:", data[0][1].shape)
+        print("NF network device:", data[0][1].device)
+
+    def split_dataset(self,
+                      dataset: torch.utils.data.DataLoader,
+                      split_ratio: float) -> tuple[torch.utils.data.Subset, torch.utils.data.Subset]:
+        """
+        Split the data into training and validation sets
+
+        Parameters
+        ----------
+        data : torch.utils.data.DataLoader
+            The data to split
+        split_ratio : float
+            The ratio to split the data
+
+        Returns
+        -------
+        train_data : torch.utils.data.Subset
+            The training data
+        val_data : torch.utils.data.Subset
+            The validation data
+        """
+        train_size = int(split_ratio * len(dataset))
+
+        # Create a random sampler to shuffle the indices
+        indices = list(range(len(dataset)))
+        RandomSampler(indices)
+
+        # Split indices into training and validation sets
+        train_indices = indices[:train_size]
+        val_indices = indices[train_size:]
+
+        # Create Subset datasets
+        train_dataset = Subset(dataset, train_indices)
+        val_dataset = Subset(dataset, val_indices)
+
+        return train_dataset, val_dataset
