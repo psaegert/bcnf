@@ -81,7 +81,6 @@ def sample_ballistic_parameters(
     elif config['x0']['x0_z']['distribution'] == 'uniform':
         x0_z = sample_from_config(config['x0']['x0_z'])
 
-
     # velo
     if config['v0']['v0_xy']['distribution'] == 'gaussian':
         r_v = np.sqrt(np.abs(sample_from_config(config['v0']['v0_xy']))) * config['v0']['v0_xy']['std'] + config['v0']['v0_xy']['mean']
@@ -97,7 +96,6 @@ def sample_ballistic_parameters(
         v0_z = sample_from_config(config['v0']['v0_z']) * config['v0']['v0_z']['std'] + config['v0']['v0_z']['mean']
     elif config['v0']['v0_z']['distribution'] == 'uniform':
         v0_z = sample_from_config(config['v0']['v0_z'])
-
 
     # wind
     if config['w']['w_xy']['distribution'] == 'gaussian':
@@ -115,9 +113,7 @@ def sample_ballistic_parameters(
     elif config['w']['w_z']['distribution'] == 'uniform':
         w_z = sample_from_config(config['w']['w_z'])
 
-
     # thrust
-
     if config['a']['distribution'] == 'gaussian':
         r_a = np.cbrt(np.abs(sample_from_config(config['a']))) * config['a']['std'] + config['a']['mean']
     elif config['a']['distribution'] == 'uniform':
@@ -207,7 +203,7 @@ def generate_data(
         config_file: str = f'{get_dir()}/configs/config.yaml',
         break_on_impact: bool = True,
         verbose: bool = False) -> dict[str, list]:
-    
+
     if output_type not in ['render', 'trajectory', 'parameters']:
         raise ValueError('output_type must be one of "render", "trajectory", or "parameters"')
 
@@ -219,7 +215,7 @@ def generate_data(
         "distance": 0
     }
 
-    data: dict[list] = {}
+    data: dict[str, list] = {}
 
     pbar = tqdm(total=n, disable=not verbose)
 

@@ -1,11 +1,12 @@
-import torch
 import numpy as np
+import torch
 from tqdm import tqdm
 
 from bcnf.models.cnf import CondRealNVP
 from bcnf.simulation.physics import physics_ODE_simulation
 
-def resimulate(model: CondRealNVP, T: int, dt: float, data_dict: dict[list], y_hat: torch.Tensor | None = None, X: torch.Tensor | None = None, m_samples: int = 1000, break_on_impact: bool = False, verbose: bool = True):
+
+def resimulate(model: CondRealNVP, T: int, dt: float, data_dict: dict[str, list], y_hat: torch.Tensor | None = None, X: torch.Tensor | None = None, m_samples: int = 1000, break_on_impact: bool = False, verbose: bool = True) -> np.ndarray:
     if y_hat is None:
         # Sample parameters from the model
         if X is None:
