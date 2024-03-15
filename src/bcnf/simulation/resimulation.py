@@ -39,10 +39,7 @@ def resimulate(model: CondRealNVP, T: int, dt: float, data_dict: dict[str, list]
             X_resimulation_list.append([])
             args_list = [(j, T, dt, break_on_impact, y_hat[j, i], {k: data_dict[k][i] for k in data_dict.keys() if k not in model.parameter_index_mapping.parameters}, model.parameter_index_mapping) for j in range(M)]
 
-            if verbose:
-                results = list(executor.map(resimulate_trajectory, args_list), total=M, desc=f"Resimulating trajectory {i+1}/{N}")  # type: ignore
-            else:
-                results = executor.map(resimulate_trajectory, args_list)
+            results = executor.map(resimulate_trajectory, args_list)
 
             X_resimulation_list[i].extend(results)
             pbar.update(1)
