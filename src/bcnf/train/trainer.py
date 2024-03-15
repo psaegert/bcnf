@@ -319,7 +319,7 @@ class Trainer():
 
             # Check if the timeout has been reached
             if self.config["training"]["timeout"] is not None and time.time() - start_time > self.config["training"]["timeout"]:
-                self.history_handler.loss_history["stop_reason"] = "timeout"
+                self.history_handler.parameter_history["stop_reason"] = "timeout"
                 return model, self.history_handler.parameter_history
 
         self.history_handler.parameter_history["stop_reason"] = "max_epochs"
