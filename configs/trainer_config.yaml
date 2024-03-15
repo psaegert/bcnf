@@ -40,7 +40,7 @@ training:
   verify: True # Stop the program and let the user check the model before training
   cross_validation: False  # Use cross-validation
   validation_split: 0.2
-  val_loss_alpha: 0.95  # TODO: Find out what this means
+  val_loss_window_size: 10  # Window size for the average validation loss
   val_loss_tolerance_mode: "rel"
   val_loss_patience: 30
   val_loss_tolerance: 1e-3

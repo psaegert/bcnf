@@ -33,7 +33,7 @@ class Trainer():
         self.model_handler = TrainerModelHandler()
         self.scheduler_creator = TrainerScheduler()
         self.history_handler = TrainerParameterHistoryHandler(
-            val_loss_alpha=self.config["training"]["val_loss_alpha"],
+            val_loss_window_size=self.config["training"]["val_loss_window_size"],
             val_loss_patience=self.config["training"]["val_loss_patience"],
             val_loss_tolerance_mode=self.config["training"]["val_loss_tolerance_mode"],
             val_loss_tolerance=self.config["training"]["val_loss_tolerance"])
@@ -140,7 +140,7 @@ class Trainer():
 
             # Reinstantiate the history handler for this fold
             self.history_handler = TrainerParameterHistoryHandler(
-                val_loss_alpha=self.config["training"]["val_loss_alpha"],
+                val_loss_alpha=self.config["training"]["val_loss_window_size"],
                 val_loss_patience=self.config["training"]["val_loss_patience"],
                 val_loss_tolerance_mode=self.config["training"]["val_loss_tolerance_mode"],
                 val_loss_tolerance=self.config["training"]["val_loss_tolerance"],

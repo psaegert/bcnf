@@ -1,11 +1,12 @@
-from typing import Any
+from collections import deque
+from typing import Any, Deque
 
 import wandb
 
 
 class TrainerParameterHistoryHandler():
     def __init__(self,
-                 val_loss_alpha: float,
+                 val_loss_window_size: int,
                  val_loss_patience: int | None = None,
                  val_loss_tolerance_mode: str = "rel",
                  val_loss_tolerance: float = 1e-3,
@@ -19,8 +20,9 @@ class TrainerParameterHistoryHandler():
         self.best_val_epoch = 0
 
         # For scheduler
-        self.val_loss_rolling_avg = None
-        self.val_loss_alpha = val_loss_alpha
+        self.val_losses: Deque[float] = deque(maxlen=val_loss_window_size)
+        self.val_loss_rolling_avg: float
+        self.val_loss_window_size = val_loss_window_size
         self.val_loss_patience = val_loss_patience
         self.val_loss_tolerance = val_loss_tolerance
 
@@ -69,12 +71,13 @@ class TrainerParameterHistoryHandler():
         -------
         None
         """
-        if self.val_loss_rolling_avg is None:
-            self.val_loss_rolling_avg = val_loss  # type: ignore
+        if len(self.val_losses) < self.val_loss_window_size:
+            self.val_losses.append(val_loss)
         else:
-            self.val_loss_rolling_avg = self.val_loss_alpha * \
-                self.val_loss_rolling_avg + \
-                (1 - self.val_loss_alpha) * val_loss
+            self.val_losses.popleft()
+            self.val_losses.append(val_loss)
+
+        self.val_loss_rolling_avg = sum(self.val_losses) / len(self.val_losses)
 
     def update_scheduler_parameters(self) -> None:
         """
