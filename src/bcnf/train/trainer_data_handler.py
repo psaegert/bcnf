@@ -54,8 +54,8 @@ class TrainerDataHandler:
         split_tensors = [torch.split(tensor, 1, dim=1) if tensor.dim() == 2 else [tensor] for tensor in tensors]
         # Flatten the list of lists
         split_tensors = [item for sublist in split_tensors for item in sublist]
-        # Check if any tensors have shape 5x1 and squeeze them to 5
-        split_tensors = [tensor.squeeze() if tensor.shape == torch.Size([5, 1]) else tensor for tensor in split_tensors]
+        # Check if any tensors have shape nx1 and squeeze them to n
+        split_tensors = [tensor.squeeze() if len(tensor.shape) > 1 else tensor for tensor in split_tensors]
         # Stack all tensors along dimension 1
         y = torch.stack(split_tensors, dim=1)
 
@@ -84,7 +84,6 @@ class TrainerDataHandler:
                              T=config["T"],
                              ratio=config["ratio"],
                              fov_horizontal=config["fov_horizontal"],
-                             cam1_pos=config["cam1_pos"],
                              print_acc_rej=config["print_acc_rej"],
                              num_cams=config["num_cams"],
                              break_on_impact=config["break_on_impact"],

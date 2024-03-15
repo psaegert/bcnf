@@ -1,12 +1,12 @@
 data:
   converter: "flatten_tensor" # Converter to use for the data of the feature network
-  load: True # Load or generate data
+  load: False # Load or generate data
   load_path: "./data/bcnf-data/data1.pkl" # Path to the data if it should be loaded
   # Data generation parameters
   name: "data1"
   overwrite: True
   data_generation_config_file: "./configs/config.yaml"
-  n_samples: 5
+  n_samples: 100
   data_type: "render"
   SPF: 0.5
   T: 3.0

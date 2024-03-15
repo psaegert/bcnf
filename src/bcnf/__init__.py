@@ -1,3 +1,3 @@
 from . import plots
 
-__all__ = ['plots']
+__all__ = ['plots', 'train']
