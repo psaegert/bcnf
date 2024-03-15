@@ -33,6 +33,7 @@ class TrainerModelHandler:
         model : torch.nn.Module
             The model for training
         """
+        print("Creating the model...")
         data_size_primary_int = data_size_primary[0]
         data_size_feature_int = data_size_feature[0]
 

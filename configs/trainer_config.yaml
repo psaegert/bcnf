@@ -1,6 +1,6 @@
 data:
   converter: "flatten_tensor" # Converter to use for the data of the feature network
-  load: False # Load or generate data
+  load: True # Load or generate data
   load_path: "./data/bcnf-data/data1.pkl" # Path to the data if it should be loaded
   # Data generation parameters
   name: "data1"
@@ -31,10 +31,10 @@ model:  # Size is automatically determined by the data size (y)
   feature_network: # First layer is as big as input
     dropout: 0.13 # Dropout rate (if > 0.0 Dropout layers are inserted after each layer)
     hidden_layer_sizes:
-      - 100000
-      - 50000
-      - 10000
       - 1000
+      - 700
+      - 300
+      - 100
     n_conditions: 101 # Size of the outpout of the feature network (Condition size C)
 training:
   verify: True # Stop the program and let the user check the model before training
@@ -48,7 +48,7 @@ training:
   n_folds: 5  # Number of folds for cross-validation
   shuffle: True  # Shuffle the data using kFold (I think this shuffles it across the folds)
   random_state: 42  # Random state for ??? TODO: Find out for what
-  batch_size: 256  # Batch size for the DataLoader
+  batch_size: 512  # Batch size for the DataLoader
   num_workers: 4  # Number of workers for the DataLoader
   pin_memory: True  # Pin memory for the DataLoader
   n_epochs: 1000  # Number of epochs to train for using one fold configuration

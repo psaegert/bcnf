@@ -314,7 +314,7 @@ class Trainer():
                 self.history_handler.update_scheduler_parameters()
 
                 if (self.history_handler.parameter_history["distance_to_last_best_val_loss"][-1][1]) >= self.history_handler.val_loss_patience:
-                    self.history_handler.loss_history["stop_reason"] = "val_loss_plateau"
+                    self.history_handler.parameter_history["stop_reason"] = "val_loss_plateau"
                     return model, self.history_handler.parameter_history
 
             # Check if the timeout has been reached
