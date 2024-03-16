@@ -1,9 +1,11 @@
 import os
+from typing import Any
 
 import torch
-import wandb
 from torch._C import dtype
+from torchsummary import summary
 
+import wandb
 from bcnf.utils import get_dir
 
 
@@ -54,3 +56,22 @@ def wandb_login(filename: str = "wandbAPIKey.txt") -> None:
         API_key = f.read().strip()
 
     wandb.login(key=API_key)  # type: ignore
+
+
+def model_summary(model: torch.nn.Module,
+                  test_data: Any) -> None:
+    """
+    Print a summary of the model using the torchsummary package.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        The model to be summarized
+    test_data : Any
+        The test data to be used for the summary
+
+    Returns
+    -------
+    None
+    """
+    summary(model, input_size=[test_data[1].shape, test_data[0].shape])
