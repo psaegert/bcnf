@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import wandb
 from sklearn.model_selection import KFold
-from torch.utils.data import DataLoader, Subset, TensorDataset
+from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
 from bcnf.errors import TrainingDivergedError
@@ -38,18 +38,13 @@ class Trainer():
         if self.verbose:
             print(f'Using dtype: {self.dtype}')
 
-    def make(self) -> tuple[TensorDataset, Callable]:
-        # Make the data
-        data = self.data_handler.get_data_for_training(
+        self.data = self.data_handler.get_data_for_training(
             data_config=self.config["data"],
             dtype=self.dtype,
             parameter_index_mapping=self.parameter_index_mapping,
             verbose=self.verbose)
 
-        # loss and optimizer
-        loss_function = inn_nll_loss
-
-        return data, loss_function
+        self.loss_function = inn_nll_loss
 
     def train(self, model: ConditionalInvertibleLayer) -> ConditionalInvertibleLayer:
         """
@@ -83,14 +78,9 @@ class Trainer():
             # Convert wandb config keys to lowercase
             self.config = {k.lower(): v for k, v in wandb.config.items()}  # type: ignore
 
-            # make the model, data, and optimization problem
-            data, loss_function = self.make()
-            if self.verbose:
-                print("\nCreated all nessesary objects\n")
-
             # Split the dataset
             train_subset, val_subset = self.data_handler.split_dataset(
-                data,
+                self.data,
                 self.config["training"]["validation_split"])
 
             # create the dataloaders
@@ -111,7 +101,7 @@ class Trainer():
                 model,
                 train_loader,
                 val_loader,
-                loss_function,
+                self.loss_function,
                 optimizer,
                 scheduler)
 
@@ -123,12 +113,8 @@ class Trainer():
             n_splits=self.config["training"]["n_folds"],
             random_state=self.config["training"]["random_state"])
 
-        data, loss_function = self.make()
-        if self.verbose:
-            print("\nCreated all nessesary objects\n")
-
         fold_metrics: list = []
-        indices = list(range(len(data)))
+        indices = list(range(len(self.data)))
         for i, (train_index, val_index) in enumerate(kf.split(indices)):
 
             with wandb.init(project=self.project_name, config=self.config, entity="balisticcnf"):  # type: ignore
@@ -139,8 +125,8 @@ class Trainer():
                 # Convert wandb config keys to lowercase
                 self.config = {k.lower(): v for k, v in wandb.config.items()}  # type: ignore
 
-                train_subset = Subset(data, train_index)
-                val_subset = Subset(data, val_index)
+                train_subset = Subset(self.data, train_index)
+                val_subset = Subset(self.data, val_index)
 
                 # create the dataloaders
                 train_loader = self.data_handler.make_data_loader(
@@ -170,7 +156,7 @@ class Trainer():
                     model,
                     train_loader,
                     val_loader,
-                    loss_function,
+                    self.loss_function,
                     optimizer,
                     scheduler,
                     fold=i)
@@ -275,7 +261,7 @@ class Trainer():
             self.history_handler.update_parameter_history("time", datetime.datetime.now().timestamp())
 
             # Update the description of the progress bar
-            pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f} (avg: {self.history_handler.val_loss_rolling_avg:.4f}, min: {self.history_handler.best_val_loss:.4f}) | lr: {optimizer.param_groups[0]['lr']:.2e} - Patience: {epoch - self.history_handler.best_val_epoch}/{self.history_handler.val_loss_patience} - z: {z_mean:.4f} ± {z_std:.4f}")
+            pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f} (avg: {self.history_handler.val_loss_rolling_avg:.4f}, min: {self.history_handler.best_val_loss:.4f}) | lr: {optimizer.param_groups[0]['lr']:.2e} - Patience: {epoch - self.history_handler.best_val_epoch}/{self.history_handler.val_loss_patience} - z: ({z_mean.mean():.4f} ± {z_mean.std}) ± ({z_std.mean():.4f} ± {z_std.std()})")
 
             # Step the scheduler
             if scheduler is not None:
@@ -330,7 +316,7 @@ class Trainer():
             x: torch.Tensor,
             y: torch.Tensor,
             model: ConditionalInvertibleLayer,
-            loss_function: Callable) -> tuple[float, float, float]:
+            loss_function: Callable) -> tuple[float, torch.Tensor, torch.Tensor]:
         # Move the data to the correct device
         x = x.to(model.device)
         y = y.to(model.device)
@@ -341,4 +327,4 @@ class Trainer():
         # Calculate the loss
         loss = loss_function(z, model.log_det_J)
 
-        return loss.item(), z.mean().item(), z.std().item()
+        return loss.item(), z.mean(dim=0).item(), z.std(dim=0).item()

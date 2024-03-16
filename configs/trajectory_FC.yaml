@@ -1,0 +1,70 @@
+global:
+  parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g_x','g_y',"g_z",'w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
+  dtype: "float32"
+
+data:
+  path: "{{BCNF_ROOT}}/data/bcnf-data/test_resimulation_data_T2_dt_1_15.pkl"
+  config_file: "{{BCNF_ROOT}}/configs/config.yaml"
+  n_samples: 2000
+  output_type: "trajectory"
+  dt: 0.067
+  T: 2.0
+  ratio:
+    - 16
+    - 9
+  fov_horizontal: 70.0
+  cam1_pos: 0.0
+  num_cams: 2
+  break_on_impact: False
+  verbose: True
+  do_filter: False
+
+model:
+  kwargs:
+    size: 21
+    nested_sizes: [16, 16, 16, 16, 16, 16, 16]
+    n_conditions: 80
+    n_blocks: 32
+    dropout: 0.383
+    act_norm: True
+
+feature_network:
+  type: null
+
+time_series_network:
+  type: FullyConnectedFeatureNetwork
+  kwargs:
+    sizes: [90, 80]
+    dropout: 0.244
+
+optimizer:
+  type: Adam
+  kwargs:
+    lr: 2e-4
+
+lr_scheduler:
+  type: ReduceLROnPlateau
+  kwargs:
+    mode: "min"
+    factor: 0.5
+    patience: 250
+    threshold_mode: "abs"
+    threshold: 1e-1
+
+training:
+  validation_split: 0.2
+  val_loss_window_size: 10
+  val_loss_patience: 500
+  val_loss_tolerance: 1e-1
+  val_loss_tolerance_mode: "abs"
+  learning_rate: 2e-4
+  random_state: 2024_03_25
+  batch_size: 256
+  num_workers: 8
+  pin_memory: True
+  n_epochs: 50_000
+  verbose: True
+  timeout: 3600
+  wandb:
+    model_log_frequency: 10
+

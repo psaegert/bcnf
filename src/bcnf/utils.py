@@ -27,7 +27,7 @@ def load_config(config_file: str) -> dict:
     if not os.path.exists(config_file):
         raise FileNotFoundError(f"File '{config_file}' does not exist.")
 
-    config = Dynaconf(settings_files=[os.path.join(get_dir("configs"), "trainer_config.yaml")])
+    config = Dynaconf(settings_files=[config_file])
 
     config.data['path'] = sub_root_path(config.data['path'])
     config.data['config_file'] = sub_root_path(config.data['config_file'])

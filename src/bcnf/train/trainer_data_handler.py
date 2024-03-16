@@ -35,6 +35,8 @@ class TrainerDataHandler:
             A PyTorch TensorDataset containing the data for training the model
         """
         if not os.path.exists(data_config['path']):
+            if verbose:
+                print(f'No data found at {data_config["path"]}. Generating data...')
             data = generate_data(
                 n=data_config['n_samples'],
                 output_type=data_config['output_type'],
@@ -48,6 +50,8 @@ class TrainerDataHandler:
             with open(data_config['path'], 'wb') as f:
                 pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
         else:
+            if verbose:
+                print(f'Loading data from {data_config["path"]}...')
             with open(data_config['path'], 'rb') as f:
                 data = pickle.load(f)
 
@@ -59,14 +63,16 @@ class TrainerDataHandler:
         else:
             raise ValueError(f'Unknown output type: {data_config["output_type"]}')
 
-        if verbose:
-            print(f'Using {data_config["output_type"]} data for training. Shape: {X.shape}')
-
         y = parameter_index_mapping.vectorize(data)
 
         # Make the correct type for the data
         X = torch.Tensor(X).to(dtype)
         y = torch.Tensor(y).to(dtype)
+
+        if verbose:
+            print(f'Using {data_config["output_type"]} data for training. Shapes:')
+            print(f'X shape: {X.shape}')
+            print(f'y shape: {y.shape}')
 
         # Matches pairs of lables and data, so dataset[0] returns tuple of the first entry in X and y
         dataset = TensorDataset(X, y)

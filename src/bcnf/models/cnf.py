@@ -257,11 +257,25 @@ class CondRealNVP(ConditionalInvertibleLayer):
         feature_network = FeatureNetworkFactory.get_feature_network(config['feature_network']['type'], config['feature_network'].get('kwargs', {}))
         time_series_network = FeatureNetworkFactory.get_feature_network(config['time_series_network']['type'], config['time_series_network'].get('kwargs', {}))
 
-        return CondRealNVP(
+        cnf = CondRealNVP(
             feature_network=feature_network,
             time_series_network=time_series_network,
             parameter_index_mapping=ParameterIndexMapping(list(config["global"]["parameter_selection"])),
             **config["model"]["kwargs"])
+
+        current_dimension = None
+        if not isinstance(cnf.feature_network, nn.Identity):
+            current_dimension = feature_network.nn[-1].out_features
+
+        if not isinstance(cnf.time_series_network, nn.Identity):
+            if current_dimension is not None:
+                assert current_dimension == time_series_network.nn[0].in_features, "The output dimension of the feature network must match the input dimension of the time series network."
+            current_dimension = time_series_network.nn[-1].out_features
+
+        if current_dimension is not None:
+            assert current_dimension == cnf.n_conditions, "The output dimension of the time series network must match the number of conditions."
+
+        return cnf
 
     def to(self, device: str) -> "CondRealNVP":  # type: ignore
         super().to(device)
