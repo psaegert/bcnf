@@ -204,7 +204,8 @@ class CondRealNVP(ConditionalInvertibleLayer):
             nested_sizes: list[int],
             n_blocks: int,
             n_conditions: int,
-            feature_network: FeatureNetwork | None,
+            feature_network: FeatureNetwork | None = None,
+            time_series_network: FeatureNetwork | None = None,
             dropout: float = 0.0,
             act_norm: bool = False,
             device: str = "cpu",
@@ -212,9 +213,14 @@ class CondRealNVP(ConditionalInvertibleLayer):
         super(CondRealNVP, self).__init__()
 
         if n_conditions == 0 or feature_network is None:
-            self.h = nn.Identity()
+            self.feature_network = nn.Identity()
         else:
-            self.h = feature_network
+            self.feature_network = feature_network
+
+        if n_conditions == 0 or time_series_network is None:
+            self.time_series_network = nn.Identity()
+        else:
+            self.time_series_network = time_series_network
 
         self.size = size
         self.nested_sizes = nested_sizes
@@ -230,11 +236,12 @@ class CondRealNVP(ConditionalInvertibleLayer):
         for _ in range(self.n_blocks - 1):
             if act_norm:
                 self.layers.append(ActNorm(self.size))
-            self.layers.append(ConditionalAffineCouplingLayer(self.size,
-                                                              self.nested_sizes,
-                                                              self.n_conditions,
-                                                              dropout=self.dropout,
-                                                              device=self.device))
+            self.layers.append(ConditionalAffineCouplingLayer(
+                self.size,
+                self.nested_sizes,
+                self.n_conditions,
+                dropout=self.dropout,
+                device=self.device))
             self.layers.append(OrthonormalTransformation(self.size))
 
         # Add the final affine coupling layer
@@ -251,7 +258,8 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
     def forward(self, x: torch.Tensor, y: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
         # Apply the feature network to y
-        y = self.h(y)
+        y = self.feature_network(y)
+        y = self.time_series_network(y)
 
         # Apply the network
         if log_det_J:
@@ -272,7 +280,8 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
     def inverse(self, z: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         # Apply the feature network to y
-        y = self.h(y)
+        y = self.feature_network(y)
+        y = self.time_series_network(y)
 
         # Apply the network in reverse
         for layer in reversed(self.layers):
@@ -291,6 +300,9 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
         with torch.no_grad():
             for m in tqdm(m_batch_sizes, desc="Sampling", disable=not verbose):
+                if m == 0:
+                    # Skip empty batch sizes
+                    continue
                 y_hat_list.append(self._sample(m, y=y, outer=True, sigma=sigma).to(output_device))
 
         y_hat = torch.cat(y_hat_list, dim=0)
@@ -333,7 +345,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
             # Apply the inverse network
             return self.inverse(z, y).view(n_samples, self.size)
-        elif y.ndim == 2:
+        elif y.ndim > 1:
             if outer:
                 # if y.shape[1] != n_input_conditions:
                 #     raise ValueError(f"y must have shape (n_samples_per_condition, {n_input_conditions}), but got y.shape = {y.shape}")
@@ -342,7 +354,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
                 # Generate n_samples for each condition in y
                 z = sigma * torch.randn(n_samples * n_samples_per_condition, self.size).to(self.device)
-                y = y.repeat(n_samples, 1)
+                y = y.repeat(n_samples, *([1] * (y.ndim - 1)))
 
                 # Apply the inverse network
                 return self.inverse(z, y).view(n_samples, n_samples_per_condition, self.size)
