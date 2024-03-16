@@ -13,24 +13,18 @@ from bcnf.factories import OptimizerFactory, SchedulerFactory
 from bcnf.models.cnf import ConditionalInvertibleLayer
 from bcnf.train.trainer_data_handler import TrainerDataHandler
 from bcnf.train.trainer_loss_handler import TrainerParameterHistoryHandler
-from bcnf.train.utils import get_data_type, get_training_device
-from bcnf.utils import inn_nll_loss
+from bcnf.train.utils import get_data_type
+from bcnf.utils import ParameterIndexMapping, inn_nll_loss
 
 
 class Trainer():
-    def __init__(self, config: dict, project_name: str = None, verbose: bool = False) -> None:
+    def __init__(self, config: dict, project_name: str, parameter_index_mapping: ParameterIndexMapping, verbose: bool = False) -> None:
         self.config = config
-
-        if project_name is None:
-            raise ValueError("project_name is not set. Please use the project_name parameter to set the project name.")
-        else:
-            self.project_name = project_name
-
         self.verbose = verbose
+        self.project_name = project_name
+        self.parameter_index_mapping = parameter_index_mapping
 
         # Initialize the data handler, model handler, and utilities
-        if self.verbose:
-            print("Initializing Trainer...")
         self.data_handler = TrainerDataHandler()
         self.history_handler = TrainerParameterHistoryHandler(
             val_loss_window_size=self.config["training"]["val_loss_window_size"],
@@ -38,18 +32,18 @@ class Trainer():
             val_loss_tolerance_mode=self.config["training"]["val_loss_tolerance_mode"],
             val_loss_tolerance=self.config["training"]["val_loss_tolerance"])
 
-        self.dtype = get_data_type(dtype=self.config["model"]["dtype"])
-        self.device = get_training_device()
+        self.dtype = get_data_type(dtype=self.config["global"]["dtype"])
 
         if self.verbose:
-            print("Initialisation complete")
-            print("-----------------------------------------------------------------------------")
+            print(f'Using dtype: {self.dtype}')
 
     def make(self) -> tuple[TensorDataset, Callable]:
         # Make the data
         data = self.data_handler.get_data_for_training(
-            config=self.config["data"],
-            dtype=self.dtype)
+            data_config=self.config["data"],
+            dtype=self.dtype,
+            parameter_index_mapping=self.parameter_index_mapping,
+            verbose=self.verbose)
 
         # loss and optimizer
         loss_function = inn_nll_loss

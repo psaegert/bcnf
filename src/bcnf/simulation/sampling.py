@@ -1,5 +1,3 @@
-import os
-import pickle
 from typing import Callable
 
 import numpy as np
@@ -287,8 +285,6 @@ def sample_ballistic_parameters(
 
 
 def generate_data(
-        name: str | None = None,
-        overwrite: bool = False,
         config_file: str = f'{get_dir()}/configs/config.yaml',
         n: int = 100,
         output_type: str = 'parameters',  # 'render', 'trajectory', or 'parameters'
@@ -302,12 +298,7 @@ def generate_data(
         do_filter: bool = True,
         verbose: bool = False) -> dict[str, list]:
 
-    if name is not None:
-        file_path = os.path.join(get_dir('data', 'bcnf-data', create=True), name + '.pkl')
-        if os.path.exists(file_path) and not overwrite:
-            raise FileExistsError(f"File {file_path} already exists and shall not be overwritten")
-
-    if output_type not in ['render', 'trajectory', 'parameters']:
+    if output_type not in ['videos', 'trajectory', 'parameters']:
         raise ValueError('output_type must be one of "render", "trajectory", or "parameters"')
 
     accepted_count = 0
@@ -372,11 +363,11 @@ def generate_data(
         parameters["cam_radian_array"] = np.insert(parameters["cam_radian_array"], 0, cam1_radian)
         cams_pos = get_cams_position(parameters["cam_radian_array"], parameters["cam_radius"], parameters["cam_heights"])
 
-        cams = []
+        videos = []
         for cam, angle in zip(cams_pos, parameters["cam_angles"]):
-            cams.append(record_trajectory(trajectory, ratio, fov_horizontal, cam, make_gif=False, radius=parameters["r"], viewing_angle=angle))
+            videos.append(record_trajectory(trajectory, ratio, fov_horizontal, cam, make_gif=False, radius=parameters["r"], viewing_angle=angle))
 
-        vis = np.sum([np.sum(cam) for cam in cams]) / (len(cams) * len(cams[0]))
+        vis = np.sum([np.sum(cam) for cam in videos]) / (len(videos) * len(videos[0]))
 
         if not accept_visibility(vis) and do_filter:
             rejected_count['visibility'] += 1
@@ -390,7 +381,7 @@ def generate_data(
             continue
 
         if output_type == 'videos':
-            parameters['videos'] = cams
+            parameters['videos'] = videos
             parameters['trajectory'] = trajectory
         elif output_type == 'trajectory':
             parameters['trajectory'] = trajectory
@@ -406,10 +397,6 @@ def generate_data(
 
         accepted_count += 1
 
-        if accepted_count % 100 == 0 and name is not None:
-            with open(file_path, 'wb') as f:
-                pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
-
         pbar.update(1)
         pbar.set_postfix(
             accepted=accepted_count,
@@ -419,9 +406,5 @@ def generate_data(
             rejected_distance=rejected_count['distance'],
             ratio=accepted_count / (accepted_count + sum(rejected_count.values())))
     pbar.close()
-
-    if name is not None:
-        with open(file_path, 'wb') as f:
-            pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
 
     return data

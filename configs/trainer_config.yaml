@@ -3,15 +3,10 @@ global:
   dtype: "float32"
 
 data:
-  converter: "flatten_tensor" # Converter to use for the data of the feature network
-  load: True # Load or generate data
-  load_path: "./data/bcnf-data/data1.pkl" # Path to the data if it should be loaded
-
-  name: "data1"
-  overwrite: True
-  data_generation_config_file: "./configs/config.yaml"
-  n_samples: 2000
-  output_type: "trajectory"
+  path: "{{BCNF_ROOT}}/data/bcnf-data/dev_data.pkl"
+  config_file: "{{BCNF_ROOT}}/configs/config.yaml"
+  n_samples: 20
+  output_type: "videos"
   dt: 0.067
   T: 2.0
   ratio:
@@ -19,10 +14,10 @@ data:
     - 9
   fov_horizontal: 70.0
   cam1_pos: 0.0
-  print_acc_rej: False
   num_cams: 2
   break_on_impact: False
   verbose: True
+  do_filter: False
 
 model:
   kwargs:

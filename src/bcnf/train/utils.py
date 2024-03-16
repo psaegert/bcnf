@@ -7,31 +7,6 @@ from torch._C import dtype
 from bcnf.utils import get_dir
 
 
-def get_training_device() -> torch.device:
-    """
-    Returns the device for training. If a GPU is available, use it. Otherwise, use the CPU.
-
-    Parameters
-    ----------
-    None
-
-    Returns
-    -------
-    device : torch.device
-        The device to use for training
-    """
-    if torch.cuda.is_available():
-        device = torch.device('cuda')
-        # TODO: FIX torch.set_default_dtype(torch.cuda.FloatTensor)
-    else:
-        device = torch.device('cpu')
-        # TODO: FIX torch.set_default_dtype(torch.float)
-
-    print(f"Using device: {device}")
-
-    return device
-
-
 def get_data_type(dtype: str) -> dtype:
     """
     Set the default data type to be used for training and models.
@@ -46,8 +21,6 @@ def get_data_type(dtype: str) -> dtype:
     torch_tensor_size : dtype
         The data type to use for the tensors
     """
-    # Set data type
-    print("Setting data type to: ", dtype)
     if dtype == "float32":
         torch_tensor_size = torch.float32
     elif dtype == "float64":

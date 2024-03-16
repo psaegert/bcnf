@@ -1,8 +1,38 @@
 import os
+import re
 from typing import Iterator
 
 import numpy as np
 import torch
+from dynaconf import Dynaconf
+
+
+def load_config(config_file: str) -> dict:
+    """
+    Load a configuration file.
+
+    Parameters
+    ----------
+    config_file : str
+        The path to the configuration file.
+
+    Returns
+    -------
+    config : dict
+        The configuration dictionary.
+    """
+    if not isinstance(config_file, str):
+        raise TypeError("config_file must be a string.")
+
+    if not os.path.exists(config_file):
+        raise FileNotFoundError(f"File '{config_file}' does not exist.")
+
+    config = Dynaconf(settings_files=[os.path.join(get_dir("configs"), "trainer_config.yaml")])
+
+    config.data['path'] = sub_root_path(config.data['path'])
+    config.data['config_file'] = sub_root_path(config.data['config_file'])
+
+    return config
 
 
 def inn_nll_loss(z: torch.Tensor, log_det_J: torch.Tensor, reduction: str = 'mean') -> torch.Tensor:
@@ -93,6 +123,26 @@ def get_dir(*args: str, create: bool = False) -> str:
         os.makedirs(os.path.join(os.path.dirname(__file__), '..', '..', *args), exist_ok=True)
 
     return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', *args))
+
+
+def sub_root_path(path: str) -> str:
+    """
+    Replace {{BCNF_ROOT}} with the root path of the project given by get_dir().
+
+    Parameters
+    ----------
+    path : str
+        The path to replace
+
+    Returns
+    -------
+    new_path : str
+        The new path with the root path replaced
+    """
+    root_path = get_dir()
+    new_path = re.sub(r"{{BCNF_ROOT}}", root_path, path)
+
+    return new_path
 
 
 class ParameterIndexMapping:
