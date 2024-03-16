@@ -3,8 +3,8 @@ global:
   dtype: "float32"
 
 data:
-  path: "{{BCNF_ROOT}}/data/bcnf-data/new_data.pkl"
-  config_file: "{{BCNF_ROOT}}/configs/config.yaml"
+  path: "{{BCNF_ROOT}}/data/bcnf-data/test_resimulation_data_T2_dt_1_15.pkl"
+  config_file: "{{BCNF_ROOT}}/configs/data/config.yaml"
   n_samples: 2000
   output_type: "trajectory"
   dt: 0.067
@@ -32,15 +32,10 @@ feature_network:
   type: null
 
 time_series_network:
-  type: LSTMFeatureNetwork
+  type: FullyConnectedFeatureNetwork
   kwargs:
-    input_size: 3
-    hidden_size: 16
-    output_size: 80
-    num_layers: 1
+    sizes: [90, 80]
     dropout: 0.244
-    bidirectional: True
-    pooling: mean
 
 optimizer:
   type: Adam
@@ -63,11 +58,9 @@ training:
   val_loss_tolerance: 1e-1
   val_loss_tolerance_mode: "abs"
   learning_rate: 2e-4
-  n_folds: 3
-  shuffle: False
   random_state: 2024_03_25
   batch_size: 256
-  num_workers: 4
+  num_workers: 8
   pin_memory: True
   n_epochs: 50_000
   verbose: True
