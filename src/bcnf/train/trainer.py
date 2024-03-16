@@ -2,6 +2,7 @@ import datetime
 import time
 from typing import Any, Callable
 
+import numpy as np
 import torch
 import wandb
 from sklearn.model_selection import KFold
@@ -74,13 +75,13 @@ class Trainer():
             optimizer=optimizer,
             scheduler_kwargs=self.config['lr_scheduler']['kwargs'])
 
-        with wandb.init(project=self.project_name, config=self.config.as_dict()):  # type: ignore
+        with wandb.init(project=self.project_name, config=self.config, entity="balisticcnf"):  # type: ignore
 
             # access all HPs through wandb.config, so logging matches execution!
             self.config = wandb.config  # type: ignore
 
             # Convert wandb config keys to lowercase
-            self.config = {k.lower(): v for k, v in wandb.config.as_dict().items()}  # type: ignore
+            self.config = {k.lower(): v for k, v in wandb.config.items()}  # type: ignore
 
             # make the model, data, and optimization problem
             data, loss_function = self.make()
@@ -130,13 +131,13 @@ class Trainer():
         indices = list(range(len(data)))
         for i, (train_index, val_index) in enumerate(kf.split(indices)):
 
-            with wandb.init(project=self.project_name, config=self.config.as_dict()):  # type: ignore
+            with wandb.init(project=self.project_name, config=self.config, entity="balisticcnf"):  # type: ignore
 
                 # access all HPs through wandb.config, so logging matches execution!
                 self.config = wandb.config  # type: ignore
 
                 # Convert wandb config keys to lowercase
-                self.config = {k.lower(): v for k, v in wandb.config.as_dict().items()}  # type: ignore
+                self.config = {k.lower(): v for k, v in wandb.config.items()}  # type: ignore
 
                 train_subset = Subset(data, train_index)
                 val_subset = Subset(data, val_index)
@@ -220,7 +221,7 @@ class Trainer():
                     log_freq=self.config["training"]["wandb"]["model_log_frequency"])
         '''
         self.history_handler = TrainerParameterHistoryHandler(
-            val_loss_alpha=self.config["training"]["val_loss_window_size"],
+            val_loss_window_size=self.config["training"]["val_loss_window_size"],
             val_loss_patience=self.config["training"]["val_loss_patience"],
             val_loss_tolerance_mode=self.config["training"]["val_loss_tolerance_mode"],
             val_loss_tolerance=self.config["training"]["val_loss_tolerance"],
@@ -239,7 +240,7 @@ class Trainer():
             for i, (x, y) in enumerate(train_loader):
                 loss = self._train_batch(x, y, model, optimizer, loss_function)
 
-                if loss > 1e5 or torch.isnan(loss).any():
+                if loss > 1e5 or np.isnan(loss):
                     raise TrainingDivergedError(f"Loss exploded to {loss} at epoch {epoch + i / len(train_loader)}")
 
                 train_loss += loss
@@ -285,7 +286,7 @@ class Trainer():
 
                 self.history_handler.update_scheduler_parameters()
 
-                if self.history_handler.parameter_history["distance_to_last_best_val_loss"][-1] >= self.history_handler.val_loss_patience:
+                if self.history_handler.parameter_history["distance_to_last_best_val_loss"][-1][1] >= self.history_handler.val_loss_patience:
                     self.history_handler.parameter_history["stop_reason"] = "val_loss_plateau"
                     return model, self.history_handler.parameter_history
 

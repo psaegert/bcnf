@@ -3,10 +3,10 @@ global:
   dtype: "float32"
 
 data:
-  path: "{{BCNF_ROOT}}/data/bcnf-data/dev_data.pkl"
+  path: "{{BCNF_ROOT}}/data/bcnf-data/new_data.pkl"
   config_file: "{{BCNF_ROOT}}/configs/config.yaml"
-  n_samples: 20
-  output_type: "videos"
+  n_samples: 2000
+  output_type: "trajectory"
   dt: 0.067
   T: 2.0
   ratio:

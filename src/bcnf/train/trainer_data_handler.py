@@ -34,7 +34,6 @@ class TrainerDataHandler:
         dataset : TensorDataset
             A PyTorch TensorDataset containing the data for training the model
         """
-        print(data_config.keys())
         if not os.path.exists(data_config['path']):
             data = generate_data(
                 n=data_config['n_samples'],
@@ -63,7 +62,6 @@ class TrainerDataHandler:
         if verbose:
             print(f'Using {data_config["output_type"]} data for training. Shape: {X.shape}')
 
-        print(parameter_index_mapping)
         y = parameter_index_mapping.vectorize(data)
 
         # Make the correct type for the data
