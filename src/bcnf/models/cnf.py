@@ -1,11 +1,12 @@
 from abc import abstractmethod
-from typing import Type
+from typing import Any, Type
 
 import numpy as np
 import torch
 import torch.nn as nn
 from tqdm import tqdm
 
+from bcnf.factories import FeatureNetworkFactory
 from bcnf.models.feature_network import FeatureNetwork
 from bcnf.utils import ParameterIndexMapping
 
@@ -250,6 +251,17 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
         # Add the final affine coupling layer
         self.layers.append(ConditionalAffineCouplingLayer(self.size, self.nested_sizes, self.n_conditions, dropout=self.dropout, device=self.device))
+
+    @classmethod
+    def from_config(cls, config: dict[str, Any]) -> "CondRealNVP":
+        feature_network = FeatureNetworkFactory.get_feature_network(config['feature_network']['type'], config['feature_network'].get('kwargs', {}))
+        time_series_network = FeatureNetworkFactory.get_feature_network(config['time_series_network']['type'], config['time_series_network'].get('kwargs', {}))
+
+        return CondRealNVP(
+            feature_network=feature_network,
+            time_series_network=time_series_network,
+            parameter_index_mapping=config["global"]["parameter_selection"],
+            **config["model"]["kwargs"])
 
     def to(self, device: str) -> "CondRealNVP":  # type: ignore
         super().to(device)

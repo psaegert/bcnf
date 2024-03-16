@@ -9,15 +9,15 @@ from torch.utils.data import DataLoader, Subset, TensorDataset
 from tqdm import tqdm
 
 from bcnf.errors import TrainingDivergedError
-from bcnf.factories import FeatureNetworkFactory, ModelFactory, OptimizerFactory, SchedulerFactory
+from bcnf.factories import OptimizerFactory, SchedulerFactory
 from bcnf.models.cnf import ConditionalInvertibleLayer
 from bcnf.train import TrainerDataHandler, TrainerParameterHistoryHandler
 from bcnf.train.utils import get_data_type, get_training_device
-from bcnf.utils import ParameterIndexMapping, inn_nll_loss
+from bcnf.utils import inn_nll_loss
 
 
 class Trainer():
-    def __init__(self, config: dict, project_name: str = None) -> None:
+    def __init__(self, config: dict, project_name: str = None, verbose: bool = False) -> None:
         self.config = config
 
         if project_name is None:
@@ -25,8 +25,11 @@ class Trainer():
         else:
             self.project_name = project_name
 
+        self.verbose = verbose
+
         # Initialize the data handler, model handler, and utilities
-        print("Initializing Trainer...")
+        if self.verbose:
+            print("Initializing Trainer...")
         self.data_handler = TrainerDataHandler()
         self.history_handler = TrainerParameterHistoryHandler(
             val_loss_window_size=self.config["training"]["val_loss_window_size"],
@@ -37,36 +40,35 @@ class Trainer():
         self.dtype = get_data_type(dtype=self.config["model"]["dtype"])
         self.device = get_training_device()
 
-        print("Initialisation complete")
-        print("-----------------------------------------------------------------------------")
+        if self.verbose:
+            print("Initialisation complete")
+            print("-----------------------------------------------------------------------------")
 
-    def make(self) -> tuple[torch.nn.Module, TensorDataset, torch.nn.Module, torch.optim.Optimizer, torch.optim.lr_scheduler.ReduceLROnPlateau]:
+    def make(self) -> tuple[TensorDataset, Callable]:
         # Make the data
         data = self.data_handler.get_data_for_training(
             config=self.config["data"],
             dtype=self.dtype)
 
-        # Make the model
-        feature_network = FeatureNetworkFactory.get_feature_network(
-            network=self.config["feature_network"]["type"],
-            network_kwargs=self.config["feature_network"].get("kwargs", {}))
-
-        time_series_network = FeatureNetworkFactory.get_feature_network(
-            network=self.config["time_series_network"]["type"],
-            network_kwargs=self.config["time_series_network"].get("kwargs", {}))
-
-        model_kwargs = self.config["model"].get("kwargs", {})
-        model_kwargs["feature_network"] = feature_network
-        model_kwargs["time_series_network"] = time_series_network
-        model_kwargs["parameter_index_mapping"] = ParameterIndexMapping(self.config["global"]["parameter_selection"])
-
-        model = ModelFactory.get_model(
-            model=self.config["model"]["type"],
-            model_kwargs=model_kwargs)
-
         # loss and optimizer
         loss_function = inn_nll_loss
 
+        return data, loss_function
+
+    def train(self, model: ConditionalInvertibleLayer) -> ConditionalInvertibleLayer:
+        """
+        Train the model on the given dataset once
+
+        Parameters
+        ----------
+        model : ConditionalInvertibleLayer
+            The model to train
+
+        Returns
+        -------
+        model : ConditionalInvertibleLayer
+            The trained model
+        """
         optimizer = OptimizerFactory.get_optimizer(
             optimizer=self.config['optimizer']['type'],
             model=model,
@@ -77,97 +79,6 @@ class Trainer():
             optimizer=optimizer,
             scheduler_kwargs=self.config['lr_scheduler']['kwargs'])
 
-        return model, data, loss_function, optimizer, scheduler
-
-    def kfold_crossvalidation(
-            self,
-            model: torch.nn.Module,
-            dataset: TensorDataset,
-            loss_function: Callable,
-            optimizer: torch.optim.Optimizer,
-            scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau) -> list[dict]:
-
-        # Train the model with k-fold cross-validation
-        kf = KFold(
-            n_splits=self.config["training"]["n_folds"],
-            random_state=self.config["training"]["random_state"])
-
-        fold_metrics: list = []
-
-        indices = list(range(len(dataset)))
-        for i, (train_index, val_index) in enumerate(kf.split(indices)):
-
-            with wandb.init(project=self.project_name, config=self.config.as_dict()):  # type: ignore
-
-                # access all HPs through wandb.config, so logging matches execution!
-                self.config = wandb.config  # type: ignore
-
-                # Convert wandb config keys to lowercase
-                self.config = {k.lower(): v for k, v in wandb.config.as_dict().items()}  # type: ignore
-
-                # make the model, data, and optimization problem
-                model, dataset, loss_function, optimizer, scheduler = self.make()
-                print("\nCreated all nessesary objects\n")
-
-                train_subset = Subset(dataset, train_index)
-                val_subset = Subset(dataset, val_index)
-
-                # create the dataloaders
-                train_loader = self.data_handler.make_data_loader(
-                    dataset=train_subset,
-                    batch_size=self.config["training"]["batch_size"],
-                    pin_memory=self.config["training"]["pin_memory"],
-                    num_workers=self.config["training"]["num_workers"])
-
-                val_loader = self.data_handler.make_data_loader(
-                    dataset=val_subset,
-                    batch_size=self.config["training"]["batch_size"],
-                    pin_memory=self.config["training"]["pin_memory"],
-                    num_workers=self.config["training"]["num_workers"])
-
-                # and use them to train the model
-                model, history = self._train(
-                    model,
-                    train_loader,
-                    val_loader,
-                    loss_function,
-                    optimizer,
-                    scheduler,
-                    fold=i)
-
-                fold_metrics.append(history)
-
-        return fold_metrics
-
-    def train(
-            self,
-            model: torch.nn.Module,
-            dataset: TensorDataset,
-            loss_function: Callable,
-            optimizer: torch.optim.Optimizer,
-            scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau,
-            **kwargs: Any) -> ConditionalInvertibleLayer:
-        """
-        Train the model on the given dataset once
-
-        Parameters
-        ----------
-        model : torch.nn.Module
-            The model to train
-        dataset : torch.utils.data.TensorDataset
-            The dataset to train on
-        loss_function : Callable
-            The loss function to use
-        optimizer : torch.optim.Optimizer
-            The optimizer to use
-        scheduler : torch.optim.lr_scheduler.ReduceLROnPlateau
-            The scheduler to use
-
-        Returns
-        -------
-        model : ConditionalInvertibleLayer
-            The trained model
-        """
         with wandb.init(project=self.project_name, config=self.config.as_dict()):  # type: ignore
 
             # access all HPs through wandb.config, so logging matches execution!
@@ -176,9 +87,14 @@ class Trainer():
             # Convert wandb config keys to lowercase
             self.config = {k.lower(): v for k, v in wandb.config.as_dict().items()}  # type: ignore
 
+            # make the model, data, and optimization problem
+            data, loss_function = self.make()
+            if self.verbose:
+                print("\nCreated all nessesary objects\n")
+
             # Split the dataset
             train_subset, val_subset = self.data_handler.split_dataset(
-                dataset,
+                data,
                 self.config["training"]["validation_split"])
 
             # create the dataloaders
@@ -201,10 +117,71 @@ class Trainer():
                 val_loader,
                 loss_function,
                 optimizer,
-                scheduler,
-                **kwargs)
+                scheduler)
 
             return model
+
+    def kfold_crossvalidation(self, model: torch.nn.Module) -> list[dict]:
+        # Train the model with k-fold cross-validation
+        kf = KFold(
+            n_splits=self.config["training"]["n_folds"],
+            random_state=self.config["training"]["random_state"])
+
+        data, loss_function = self.make()
+        if self.verbose:
+            print("\nCreated all nessesary objects\n")
+
+        fold_metrics: list = []
+        indices = list(range(len(data)))
+        for i, (train_index, val_index) in enumerate(kf.split(indices)):
+
+            with wandb.init(project=self.project_name, config=self.config.as_dict()):  # type: ignore
+
+                # access all HPs through wandb.config, so logging matches execution!
+                self.config = wandb.config  # type: ignore
+
+                # Convert wandb config keys to lowercase
+                self.config = {k.lower(): v for k, v in wandb.config.as_dict().items()}  # type: ignore
+
+                train_subset = Subset(data, train_index)
+                val_subset = Subset(data, val_index)
+
+                # create the dataloaders
+                train_loader = self.data_handler.make_data_loader(
+                    dataset=train_subset,
+                    batch_size=self.config["training"]["batch_size"],
+                    pin_memory=self.config["training"]["pin_memory"],
+                    num_workers=self.config["training"]["num_workers"])
+
+                val_loader = self.data_handler.make_data_loader(
+                    dataset=val_subset,
+                    batch_size=self.config["training"]["batch_size"],
+                    pin_memory=self.config["training"]["pin_memory"],
+                    num_workers=self.config["training"]["num_workers"])
+
+                optimizer = OptimizerFactory.get_optimizer(
+                    optimizer=self.config['optimizer']['type'],
+                    model=model,
+                    optimizer_kwargs=self.config['optimizer']['kwargs'])
+
+                scheduler = SchedulerFactory.get_scheduler(
+                    scheduler=self.config['lr_scheduler']['type'],
+                    optimizer=optimizer,
+                    scheduler_kwargs=self.config['lr_scheduler']['kwargs'])
+
+                # and use them to train the model
+                model, history = self._train(
+                    model,
+                    train_loader,
+                    val_loader,
+                    loss_function,
+                    optimizer,
+                    scheduler,
+                    fold=i)
+
+                fold_metrics.append(history)
+
+        return fold_metrics
 
     def _train(
             self,

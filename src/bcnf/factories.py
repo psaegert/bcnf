@@ -3,7 +3,6 @@ from typing import Any
 import torch
 import torch.nn as nn
 
-from bcnf.models import CondRealNVP
 from bcnf.models.feature_network import FeatureNetwork, FullyConnectedFeatureNetwork, LSTMFeatureNetwork
 
 
@@ -39,13 +38,3 @@ class FeatureNetworkFactory():
                 return nn.Identity()
             case _:
                 raise NotImplementedError(f"Feature network {network} not implemented")
-
-
-class ModelFactory():
-    @staticmethod
-    def get_model(model: str | None, model_kwargs: Any) -> torch.nn.Module:
-        match model:
-            case "CondRealNVP":
-                return CondRealNVP(**model_kwargs)
-            case _:
-                raise NotImplementedError(f"Model {model} not implemented")

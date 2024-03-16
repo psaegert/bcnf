@@ -1,5 +1,6 @@
 global:
-  parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g_x', 'g_y', "g_z",'w_x','w_y','w_z','b', 'm', 'a_x', 'a_y', 'a_z','r', 'A', 'Cd', 'rho']
+  parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g_x','g_y',"g_z",'w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
+  dtype: "float32"
 
 data:
   converter: "flatten_tensor" # Converter to use for the data of the feature network
@@ -24,11 +25,13 @@ data:
   verbose: True
 
 model:
-  dtype: "float32"
-  nested_sizes: [16, 16, 16, 16, 16, 16, 16]
-  n_blocks: 32
-  dropout: 0.383
-  act_norm: True
+  kwargs:
+    size: 21
+    nested_sizes: [16, 16, 16, 16, 16, 16, 16]
+    n_conditions: 80
+    n_blocks: 32
+    dropout: 0.383
+    act_norm: True
 
 feature_network:
   type: null
@@ -36,11 +39,13 @@ feature_network:
 time_series_network:
   type: LSTMFeatureNetwork
   kwargs:
-    input_size: 16
+    input_size: 3
     hidden_size: 16
+    output_size: 80
     num_layers: 1
     dropout: 0.244
     bidirectional: True
+    pooling: mean
 
 optimizer:
   type: Adam
