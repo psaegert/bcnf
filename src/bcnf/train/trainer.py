@@ -274,12 +274,12 @@ class Trainer():
 
                 if self.history_handler.parameter_history["distance_to_last_best_val_loss"][-1][1] >= self.history_handler.val_loss_patience:
                     self.history_handler.parameter_history["stop_reason"] = "val_loss_plateau"
-                    return model, self.history_handler.parameter_history
+                    return model
 
             # Check if the timeout has been reached
             if self.config["training"]["timeout"] is not None and time.time() - start_time > self.config["training"]["timeout"]:
                 self.history_handler.parameter_history["stop_reason"] = "timeout"
-                return model, self.history_handler.parameter_history
+                return model
 
         self.history_handler.parameter_history["stop_reason"] = "max_epochs"
 

@@ -57,7 +57,6 @@ class TrainerDataHandler:
 
         if data_config['output_type'] == 'videos':
             X = np.array(data['videos'])
-            print(X.shape)
         elif data_config['output_type'] == 'trajectory':
             X = np.array(data['trajectory'])
         else:
@@ -66,8 +65,8 @@ class TrainerDataHandler:
         y = parameter_index_mapping.vectorize(data)
 
         # Make the correct type for the data
-        X = torch.Tensor(X).to(dtype)
-        y = torch.Tensor(y).to(dtype)
+        X = torch.tensor(X, dtype=dtype).to(data_config['device'])
+        y = torch.tensor(y, dtype=dtype).to(data_config['device'])
 
         if verbose:
             print(f'Using {data_config["output_type"]} data for training. Shapes:')

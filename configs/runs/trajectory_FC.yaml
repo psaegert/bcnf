@@ -18,6 +18,7 @@ data:
   break_on_impact: False
   verbose: True
   do_filter: False
+  device: "cuda:0"
 
 model:
   kwargs:
@@ -60,8 +61,8 @@ training:
   learning_rate: 2e-4
   random_state: 2024_03_25
   batch_size: 256
-  num_workers: 8
-  pin_memory: True
+  num_workers: 0
+  pin_memory: False
   n_epochs: 50_000
   verbose: True
   timeout: 3600
