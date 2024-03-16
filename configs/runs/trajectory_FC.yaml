@@ -65,7 +65,7 @@ training:
   pin_memory: False
   n_epochs: 50_000
   verbose: True
-  timeout: 3600
+  timeout: 10_000
   wandb:
     model_log_frequency: 10
 
