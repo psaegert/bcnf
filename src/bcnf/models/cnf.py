@@ -7,11 +7,16 @@ import torch.nn as nn
 from tqdm import tqdm
 
 from bcnf.models.feature_network import FeatureNetwork
+from bcnf.utils import ParameterIndexMapping
 
 
 class InvertibleLayer(nn.Module):
     log_det_J: float | torch.Tensor | None
     n_conditions: int
+
+    @property
+    def n_params(self) -> int:
+        return sum(p.numel() for p in self.parameters())
 
     @abstractmethod
     def forward(self, x: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
@@ -25,6 +30,10 @@ class InvertibleLayer(nn.Module):
 class ConditionalInvertibleLayer(nn.Module):
     log_det_J: float | torch.Tensor | None
     n_conditions: int
+
+    @property
+    def n_params(self) -> int:
+        return sum(p.numel() for p in self.parameters())
 
     @abstractmethod
     def forward(self, x: torch.Tensor, y: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
@@ -60,6 +69,10 @@ class ConditionalNestedNeuralNetwork(nn.Module):
                     self.nn.append(nn.Dropout(dropout))
 
             self.nn.append(nn.Linear(sizes[-2], sizes[-1]))
+
+    @property
+    def n_params(self) -> int:
+        return sum(p.numel() for p in self.parameters())
 
     def to(self, device: str) -> "ConditionalNestedNeuralNetwork":  # type: ignore
         super().to(device)
@@ -150,7 +163,7 @@ class OrthonormalTransformation(ConditionalInvertibleLayer):
         self.log_det_J: float = 0
 
         # Create the random orthonormal matrix via QR decomposition
-        self.orthonormal_matrix: torch.Tensor = torch.linalg.qr(torch.randn(input_size, input_size))[0]
+        self.orthonormal_matrix: torch.Tensor = nn.Parameter(torch.linalg.qr(torch.randn(input_size, input_size))[0], requires_grad=False)
         self.orthonormal_matrix.requires_grad = False
 
     def to(self, device: str) -> "OrthonormalTransformation":  # type: ignore
@@ -185,15 +198,17 @@ class ActNorm(InvertibleLayer):
 
 
 class CondRealNVP(ConditionalInvertibleLayer):
-    def __init__(self,
-                 size: int,
-                 nested_sizes: list[int],
-                 n_blocks: int,
-                 n_conditions: int,
-                 feature_network: FeatureNetwork | None,
-                 dropout: float = 0.0,
-                 act_norm: bool = False,
-                 device: str = "cpu"):
+    def __init__(
+            self,
+            size: int,
+            nested_sizes: list[int],
+            n_blocks: int,
+            n_conditions: int,
+            feature_network: FeatureNetwork | None,
+            dropout: float = 0.0,
+            act_norm: bool = False,
+            device: str = "cpu",
+            parameter_index_mapping: ParameterIndexMapping = None) -> None:
         super(CondRealNVP, self).__init__()
 
         if n_conditions == 0 or feature_network is None:
@@ -207,6 +222,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
         self.n_conditions = n_conditions
         self.device = device
         self.dropout = dropout
+        self.parameter_index_mapping = parameter_index_mapping
         self.log_det_J: torch.Tensor = torch.zeros(1).to(self.device)
 
         # Create the network

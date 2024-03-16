@@ -1,4 +1,5 @@
 import os
+from typing import Iterator
 
 import numpy as np
 
@@ -84,3 +85,33 @@ def get_dir(*args: str, create: bool = False) -> str:
         os.makedirs(os.path.join(os.path.dirname(__file__), '..', '..', *args), exist_ok=True)
 
     return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', *args))
+
+
+class ParameterIndexMapping:
+    def __init__(self, parameters: list[str]) -> None:
+        self.parameters = parameters
+        self.map = {p: i for i, p in enumerate(parameters)}
+
+    def __len__(self) -> int:
+        return len(self.parameters)
+
+    def vectorize(self, parameter_dict: dict) -> np.ndarray:
+        return np.array([parameter_dict[p] for p in self.parameters]).T
+
+    def dictify(self, parameter_vector: np.ndarray) -> dict:
+        return {p: parameter_vector[i] for i, p in enumerate(self.parameters)}
+
+    def __getitem__(self, key: str) -> int:
+        return self.map[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.parameters)
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.parameters
+
+    def __repr__(self) -> str:
+        return str(self.parameters)
+
+    def __str__(self) -> str:
+        return str(self.parameters)

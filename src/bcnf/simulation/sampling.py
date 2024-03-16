@@ -1,5 +1,6 @@
 import os
 import pickle
+from typing import Callable
 
 import numpy as np
 from dynaconf import Dynaconf
@@ -8,6 +9,101 @@ from tqdm import tqdm
 from bcnf.simulation.camera import record_trajectory
 from bcnf.simulation.physics import calculate_point_of_impact, physics_ODE_simulation
 from bcnf.utils import get_dir
+
+
+def generate_data_old(
+        x0_pdf: Callable = lambda size: np.random.uniform(0, 10, size=size),
+        v0_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size) + np.array([0, 0, 9]),
+        g_pdf: Callable = lambda size: np.random.normal(9.81, 0.1, size=size) * np.array([0, 0, -1]),
+        w_pdf: Callable = lambda size: np.random.normal(0, 1, size=size) * np.array([1, 1, 0.1]),
+        b_pdf: Callable = lambda size: np.random.uniform(0, 1, size=size),
+        m_pdf: Callable = lambda size: np.random.uniform(0.5, 1.5, size=size),
+        rho_pdf: Callable = lambda size: np.random.uniform(1.0, 1.5, size=size),
+        r_pdf: Callable = lambda size: np.random.uniform(0.05, 0.15, size=size),
+        a_pdf: Callable = lambda size: np.random.uniform(0, 0, size=size),
+        T: float = 2.0,
+        dt: float = 1 / 30,
+        N: int = 1,
+        break_on_impact: bool = False) -> dict[str, np.ndarray]:
+    """
+    Create a dataset from prior parameter distributions and the simulation model.
+
+    Parameters
+    ----------
+    x0_pdf : function
+        A function that returns a sample from the prior distribution of the initial position.
+    v0_pdf : function
+        A function that returns a sample from the prior distribution of the initial velocity.
+    g_pdf : function
+        A function that returns a sample from the prior distribution of the gravitational acceleration.
+    w_pdf : function
+        A function that returns a sample from the prior distribution of the wind.
+    b_pdf : function
+        A function that returns a sample from the prior distribution of the drag coefficient.
+    m_pdf : function
+        A function that returns a sample from the prior distribution of the mass.
+    a_pdf : function
+        A function that returns a sample from the prior distribution of the thrust.
+    T : float
+        The total run time in seconds.
+    dt : float
+        The time step.
+    N : int
+        The number of simulations to run.
+
+    Returns
+    -------
+    X : array
+        The simulated data, shape (N, int(T / dt), 3).
+    y : array
+        The parameters used to simulate the data, shape (N, 14).
+    """
+
+    x0 = x0_pdf(size=(N, 3))
+    v0 = v0_pdf(size=(N, 3))
+    g = g_pdf(size=(N, 3))
+    w = w_pdf(size=(N, 3))
+    b = b_pdf(size=(N,))
+    m = m_pdf(size=(N,))
+    rho = rho_pdf(size=(N,))
+    r = r_pdf(size=(N,))
+    a = a_pdf(size=(N, 3))
+
+    # Run the simulation
+    X = np.zeros((N, int(T / dt), 3))
+    for i in tqdm(range(N)):
+        # X[i] = physics_ODE_simulation(x0[i], v0[i], g[i], w[i], b[i], m[i], rho[i], r[i], a[i], T, dt, break_on_impact=break_on_impact)
+        X[i] = physics_ODE_simulation(
+            x0_x=x0[i, 0], x0_y=x0[i, 1], x0_z=x0[i, 2],
+            v0_x=v0[i, 0], v0_y=v0[i, 1], v0_z=v0[i, 2],
+            g_x=g[i, 0], g_y=g[i, 1], g_z=g[i, 2],
+            w_x=w[i, 0], w_y=w[i, 1], w_z=w[i, 2],
+            b=b[i], m=m[i], rho=rho[i], r=r[i], a_x=a[i, 0], a_y=a[i, 1], a_z=a[i, 2],
+            T=T, dt=dt, break_on_impact=break_on_impact)
+
+    # Stack the parameters into a single vector for each simulation
+    return {
+        'trajectory': X,
+        'x0_x': x0[:, 0],
+        'x0_y': x0[:, 1],
+        'x0_z': x0[:, 2],
+        'v0_x': v0[:, 0],
+        'v0_y': v0[:, 1],
+        'v0_z': v0[:, 2],
+        'g_x': g[:, 0],
+        'g_y': g[:, 1],
+        'g_z': g[:, 2],
+        'w_x': w[:, 0],
+        'w_y': w[:, 1],
+        'w_z': w[:, 2],
+        'b': b,
+        'm': m,
+        'rho': rho,
+        'r': r,
+        'a_x': a[:, 0],
+        'a_y': a[:, 1],
+        'a_z': a[:, 2]
+    }
 
 
 def sample_from_config(values: dict
@@ -59,16 +155,17 @@ def accept_traveled_distance(distance: float) -> bool:
         return False
 
 
-def sample_ballistic_parameters(num_cams: int = 2,
-                                cfg_file: str = f'{get_dir()}/configs/config.yaml'
-                                ) -> tuple:
+def sample_ballistic_parameters(
+        num_cams: int = 2,
+        cfg_file: str = f'{get_dir()}/configs/config.yaml') -> dict:
+
     config = Dynaconf(settings_files=[cfg_file])
 
     # pos
     if config['x0']['x0_xy']['distribution'] == 'gaussian':
         r_x = np.sqrt(np.abs(sample_from_config(config['x0']['x0_xy']))) * config['x0']['x0_xy']['std'] + config['x0']['x0_xy']['mean']
     elif config['x0']['x0_xy']['distribution'] == 'uniform':
-        r_x = sample_from_config(config['x0']['x0_xy'])
+        r_x = np.sqrt(sample_from_config(config['x0']['x0_xy']))
 
     phi = np.random.uniform(0, 2 * np.pi)
 
@@ -79,8 +176,6 @@ def sample_ballistic_parameters(num_cams: int = 2,
         x0_z = sample_from_config(config['x0']['x0_z']) * config['x0']['x0_z']['std'] + config['x0']['x0_z']['mean']
     elif config['x0']['x0_z']['distribution'] == 'uniform':
         x0_z = sample_from_config(config['x0']['x0_z'])
-
-    x0 = np.array([x0_x, x0_y, x0_z])
 
     # velo
     if config['v0']['v0_xy']['distribution'] == 'gaussian':
@@ -98,8 +193,6 @@ def sample_ballistic_parameters(num_cams: int = 2,
     elif config['v0']['v0_z']['distribution'] == 'uniform':
         v0_z = sample_from_config(config['v0']['v0_z'])
 
-    v0 = np.array([v0_x, v0_y, v0_z])
-
     # wind
     if config['w']['w_xy']['distribution'] == 'gaussian':
         r_x = np.sqrt(np.abs(sample_from_config(config['w']['w_xy']))) * config['w']['w_xy']['std'] + config['w']['w_xy']['mean']
@@ -116,10 +209,7 @@ def sample_ballistic_parameters(num_cams: int = 2,
     elif config['w']['w_z']['distribution'] == 'uniform':
         w_z = sample_from_config(config['w']['w_z'])
 
-    w = np.array([w_x, w_y, w_z])
-
     # thrust
-
     if config['a']['distribution'] == 'gaussian':
         r_a = np.cbrt(np.abs(sample_from_config(config['a']))) * config['a']['std'] + config['a']['mean']
     elif config['a']['distribution'] == 'uniform':
@@ -132,12 +222,8 @@ def sample_ballistic_parameters(num_cams: int = 2,
     a_y = r_a * np.sin(theta_a) * np.sin(phi_a)
     a_z = r_a * np.cos(theta_a)
 
-    a = np.array([a_x, a_y, a_z])
-
     # grav
-    g_z = sample_from_config(config['g'])
-
-    g = np.array([0, 0, -g_z])
+    g_z = - sample_from_config(config['g'])
 
     # b
     # density of atmosphere
@@ -169,7 +255,35 @@ def sample_ballistic_parameters(num_cams: int = 2,
     # cam heights
     cam_heights = [sample_from_config(config['cam_heights']) for _ in range(num_cams)]
 
-    return x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho, cam_radius, cam_angles, cam_heights
+    # return x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho, cam_radius, cam_angles, cam_heights
+
+    return {
+        'x0_x': x0_x,
+        'x0_y': x0_y,
+        'x0_z': x0_z,
+        'v0_x': v0_x,
+        'v0_y': v0_y,
+        'v0_z': v0_z,
+        'g_x': 0,
+        'g_y': 0,
+        'g_z': g_z,
+        'w_x': w_x,
+        'w_y': w_y,
+        'w_z': w_z,
+        'b': b,
+        'm': m,
+        'a_x': a_x,
+        'a_y': a_y,
+        'a_z': a_z,
+        'cam_radian_array': cam_radian_array,
+        'r': r,
+        'A': A,
+        'Cd': Cd,
+        'rho': rho,
+        'cam_radius': cam_radius,
+        'cam_angles': cam_angles,
+        'cam_heights': cam_heights
+    }
 
 
 def generate_data(
@@ -177,15 +291,15 @@ def generate_data(
         overwrite: bool = False,
         config_file: str = f'{get_dir()}/configs/config.yaml',
         n: int = 100,
-        type: str = 'parameters',  # 'render', 'trajectory', or 'parameters'
-        SPF: float = 1 / 30,
+        output_type: str = 'parameters',  # 'render', 'trajectory', or 'parameters'
+        dt: float = 1 / 30,
         T: float = 4,
         ratio: tuple = (16, 9),
         fov_horizontal: float = 70.0,
         cam1_radian: float = 0.0,
-        print_acc_rej: bool = False,
         num_cams: int = 2,
         break_on_impact: bool = True,
+        do_filter: bool = True,
         verbose: bool = False) -> dict[str, list]:
 
     if name is not None:
@@ -193,165 +307,102 @@ def generate_data(
         if os.path.exists(file_path) and not overwrite:
             raise FileExistsError(f"File {file_path} already exists and shall not be overwritten")
 
-    accepted_count = 0
-    rejected_count = 0
+    if output_type not in ['render', 'trajectory', 'parameters']:
+        raise ValueError('output_type must be one of "render", "trajectory", or "parameters"')
 
-    data: dict[str, list] = {
-        'cams': [],
-        'traj': [],
-        'x0_x': [],
-        'x0_y': [],
-        'x0_z': [],
-        'v0_x': [],
-        'v0_y': [],
-        'v0_z': [],
-        'g': [],
-        'w_x': [],
-        'w_y': [],
-        'w_z': [],
-        'b': [],
-        'A': [],
-        'Cd': [],
-        'rho': [],
-        'm': [],
-        'a_x': [],
-        'a_y': [],
-        'a_z': [],
-        'cam_radian': [],
-        'r': [],
-        'cam_radius': [],
-        'cam_angles': [],
-        'cam_heights': []
+    accepted_count = 0
+    rejected_count = {
+        "runaway": 0,
+        "start_underground": 0,
+        "visibility": 0,
+        "distance": 0
     }
+
+    data: dict[str, list] = {}
 
     pbar = tqdm(total=n, disable=not verbose)
 
     while accepted_count < n:
-        x0, v0, g, w, b, m, a, cam_radian_array, r, A, Cd, rho, cam_radius, cam_angles, cam_heights = sample_ballistic_parameters(num_cams=num_cams, cfg_file=config_file)
+        parameters = sample_ballistic_parameters(num_cams=num_cams, cfg_file=config_file)
 
         # first check: will the ball actually come down again?
-        if g[2] + a[2] > 0:
-            rejected_count += 1
-            pbar.set_postfix(accepted=accepted_count, rejected=rejected_count, ratio=accepted_count / (accepted_count + rejected_count))
+        if parameters['g_z'] + parameters['a_z'] > 0 and do_filter:
+            rejected_count['runaway'] += 1
+            pbar.set_postfix(
+                accepted=accepted_count,
+                rejected_runaway=rejected_count['runaway'],
+                rejected_start_underground=rejected_count['start_underground'],
+                rejected_visibility=rejected_count['visibility'],
+                rejected_distance=rejected_count['distance'],
+                ratio=accepted_count / (accepted_count + sum(rejected_count.values())))
             continue
 
         # second check: is x0_z > 0?
-        if x0[2] < 0:
-            rejected_count += 1
-            pbar.set_postfix(accepted=accepted_count, rejected=rejected_count, ratio=accepted_count / (accepted_count + rejected_count))
+        if parameters['x0_z'] < 0 and do_filter:
+            rejected_count['start_underground'] += 1
+            pbar.set_postfix(
+                accepted=accepted_count,
+                rejected_runaway=rejected_count['runaway'],
+                rejected_start_underground=rejected_count['start_underground'],
+                rejected_visibility=rejected_count['visibility'],
+                rejected_distance=rejected_count['distance'],
+                ratio=accepted_count / (accepted_count + sum(rejected_count.values())))
             continue
 
         # third check: how far does the ball travel?
-        poi = calculate_point_of_impact(x0, v0, g, w, b, m, rho, r, a)
+        poi = calculate_point_of_impact(**parameters)
 
         # Check that poi and x0 have the same shape
-        if poi.shape != x0.shape:
-            raise ValueError(f'poi and x0 must have the same shape. poi.shape = {poi.shape}, x0.shape = {x0.shape}')
-        distance = float(np.linalg.norm(poi - x0))
+        distance = float(np.linalg.norm(poi - np.array([parameters['x0_x'], parameters['x0_y'], parameters['x0_z']])))
 
-        if not accept_traveled_distance(distance):
-            rejected_count += 1
-            pbar.set_postfix(accepted=accepted_count, rejected=rejected_count, ratio=accepted_count / (accepted_count + rejected_count))
+        if not accept_traveled_distance(distance) and do_filter:
+            rejected_count['distance'] += 1
+            pbar.set_postfix(
+                accepted=accepted_count,
+                rejected_runaway=rejected_count['runaway'],
+                rejected_start_underground=rejected_count['start_underground'],
+                rejected_visibility=rejected_count['visibility'],
+                rejected_distance=rejected_count['distance'],
+                ratio=accepted_count / (accepted_count + sum(rejected_count.values())))
             continue
 
-        traj = physics_ODE_simulation(x0, v0, g, w, b, m, rho, r, a, T, SPF, break_on_impact=break_on_impact)
+        trajectory = physics_ODE_simulation(T=T, dt=dt, break_on_impact=break_on_impact, **parameters)
 
         # Prepend the first camera radian to the other camera radians
-        cam_radian_array = np.insert(cam_radian_array, 0, cam1_radian)
-        cams_pos = get_cams_position(cam_radian_array, cam_radius, cam_heights)
+        parameters["cam_radian_array"] = np.insert(parameters["cam_radian_array"], 0, cam1_radian)
+        cams_pos = get_cams_position(parameters["cam_radian_array"], parameters["cam_radius"], parameters["cam_heights"])
 
         cams = []
-        for cam, angle in zip(cams_pos, cam_angles):
-            cams.append(record_trajectory(traj, ratio, fov_horizontal, cam, make_gif=False, radius=r, viewing_angle=angle))
+        for cam, angle in zip(cams_pos, parameters["cam_angles"]):
+            cams.append(record_trajectory(trajectory, ratio, fov_horizontal, cam, make_gif=False, radius=parameters["r"], viewing_angle=angle))
 
         vis = np.sum([np.sum(cam) for cam in cams]) / (len(cams) * len(cams[0]))
 
-        if not accept_visibility(vis):
-            rejected_count += 1
-            pbar.set_postfix(accepted=accepted_count, rejected=rejected_count, ratio=accepted_count / (accepted_count + rejected_count))
+        if not accept_visibility(vis) and do_filter:
+            rejected_count['visibility'] += 1
+            pbar.set_postfix(
+                accepted=accepted_count,
+                rejected_runaway=rejected_count['runaway'],
+                rejected_start_underground=rejected_count['start_underground'],
+                rejected_visibility=rejected_count['visibility'],
+                rejected_distance=rejected_count['distance'],
+                ratio=accepted_count / (accepted_count + sum(rejected_count.values())))
             continue
 
-        # add to list
-        if type == 'render':
-            # append cam1, cam2 and parameters
-            data['cams'].append(cams)
-            data['traj'].append(traj)
-            data['x0_x'].append(x0[0])
-            data['x0_y'].append(x0[1])
-            data['x0_z'].append(x0[2])
-            data['v0_x'].append(v0[0])
-            data['v0_y'].append(v0[1])
-            data['v0_z'].append(v0[2])
-            data['g'].append(g[2])
-            data['w_x'].append(w[0])
-            data['w_y'].append(w[1])
-            data['w_z'].append(w[2])
-            data['b'].append(b)
-            data['A'].append(A)
-            data['Cd'].append(Cd)
-            data['rho'].append(rho)
-            data['m'].append(m)
-            data['a_x'].append(a[0])
-            data['a_y'].append(a[1])
-            data['a_z'].append(a[2])
-            data['cam_radian'].append(cam_radian_array)
-            data['r'].append(r)
-            data['cam_radius'].append(cam_radius)
-            data['cam_angles'].append(cam_angles)
-            data['cam_heights'].append(cam_heights)
+        if output_type == 'videos':
+            parameters['videos'] = cams
+            parameters['trajectory'] = trajectory
+        elif output_type == 'trajectory':
+            parameters['trajectory'] = trajectory
 
-        elif type == 'parameters':
-            data['x0_x'].append(x0[0])
-            data['x0_y'].append(x0[1])
-            data['x0_z'].append(x0[2])
-            data['v0_x'].append(v0[0])
-            data['v0_y'].append(v0[1])
-            data['v0_z'].append(v0[2])
-            data['g'].append(g[2])
-            data['w_x'].append(w[0])
-            data['w_y'].append(w[1])
-            data['w_z'].append(w[2])
-            data['b'].append(b)
-            data['A'].append(A)
-            data['Cd'].append(Cd)
-            data['rho'].append(rho)
-            data['m'].append(m)
-            data['a_x'].append(a[0])
-            data['a_y'].append(a[1])
-            data['a_z'].append(a[2])
-            data['cam_radian'].append(cam_radian_array)
-            data['r'].append(r)
-            data['cam_radius'].append(cam_radius)
-            data['cam_angles'].append(cam_angles)
-            data['cam_heights'].append(cam_heights)
+        # Complete the parameters dictionary
+        if len(data) == 0:
+            # Create the keys for the data dictionary
+            for key in parameters.keys():
+                data[key] = []
 
-        elif type == 'trajectory':
-            data['traj'].append(traj)
-            data['x0_x'].append(x0[0])
-            data['x0_y'].append(x0[1])
-            data['x0_z'].append(x0[2])
-            data['v0_x'].append(v0[0])
-            data['v0_y'].append(v0[1])
-            data['v0_z'].append(v0[2])
-            data['g'].append(g[2])
-            data['w_x'].append(w[0])
-            data['w_y'].append(w[1])
-            data['w_z'].append(w[2])
-            data['b'].append(b)
-            data['A'].append(A)
-            data['Cd'].append(Cd)
-            data['rho'].append(rho)
-            data['m'].append(m)
-            data['a_x'].append(a[0])
-            data['a_y'].append(a[1])
-            data['a_z'].append(a[2])
-            data['cam_radian'].append(cam_radian_array)
-            data['r'].append(r)
-            data['cam_radius'].append(cam_radius)
-            data['cam_angles'].append(cam_angles)
-            data['cam_heights'].append(cam_heights)
-        else:
-            raise ValueError('type must be one of "render", "trajectory", or "parameters"')
+        for key in parameters.keys():
+            data[key].append(parameters[key])
 
         accepted_count += 1
 
@@ -359,11 +410,14 @@ def generate_data(
             with open(file_path, 'wb') as f:
                 pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
 
-        print(f'accepted: {accepted_count}, rejected: {rejected_count}', end='\r')
         pbar.update(1)
-        if print_acc_rej:
-            pbar.set_postfix(accepted=accepted_count, rejected=rejected_count, ratio=accepted_count / (accepted_count + rejected_count))
-
+        pbar.set_postfix(
+            accepted=accepted_count,
+            rejected_runaway=rejected_count['runaway'],
+            rejected_start_underground=rejected_count['start_underground'],
+            rejected_visibility=rejected_count['visibility'],
+            rejected_distance=rejected_count['distance'],
+            ratio=accepted_count / (accepted_count + sum(rejected_count.values())))
     pbar.close()
 
     if name is not None:

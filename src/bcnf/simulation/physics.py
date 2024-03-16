@@ -1,40 +1,144 @@
-from typing import Callable
+from typing import Any
 
 import numpy as np
 from scipy.integrate import odeint
-from tqdm import tqdm
 
 
-# physics simulation with ODE integration
-def ballistic_ODE(v: np.ndarray = np.array([10, 10, 10]),   # velocity
-                  t: np.ndarray = np.zeros((100, 3)),       # time
-                  g: np.ndarray = np.array([0, 0, -9.81]),  # gravitational acceleration
-                  w: np.ndarray = np.array([-10, 10, 0]),   # wind
-                  b: float = 0.1,                           # drag coefficient
-                  m: float = 1.0,                           # mass
-                  rho: float = 1.225,                       # air density
-                  r: float = 0.1,                           # radius of ball
-                  a: np.ndarray = np.array([0, 0, 0])       # thrust
-                  ) -> np.ndarray:
+def ballistic_ODE(
+        v: np.ndarray = np.array([10, 10, 10]),
+        t: np.ndarray = np.zeros((100, 3)),
+        g: np.ndarray = np.array([0, 0, -9.81]),
+        w: np.ndarray = np.array([-10, 10, 0]),
+        b: float = 0.1,
+        m: float = 1.0,
+        rho: float = 1.225,
+        r: float = 0.1,
+        a: np.ndarray = np.array([0, 0, 0])) -> np.ndarray:
+    """
+    ODE for ballistic motion with drag and wind.
+
+    Parameters
+    ----------
+    v : np.ndarray
+        Velocity
+    t : np.ndarray
+        Time
+    g : np.ndarray
+        Gravitational acceleration
+    w : np.ndarray
+        Wind
+    b : float
+        Drag coefficient
+    m : float
+        Mass
+    rho : float
+        Air density
+    r : float
+        Radius of ball
+    a : np.ndarray
+        Thrust
+
+    Returns
+    -------
+    np.ndarray
+        Derivative of velocity
+    """
+
     # gravity - buoyancy - drag + wind + thrust
     dvdt = g - g * rho * (4 / 3) * (np.pi * r**3) / m - (0.5 * b / m) * (v**2 * v / np.linalg.norm(v) - w**2 * w / np.linalg.norm(w)) + a
 
     return dvdt
 
 
-def physics_ODE_simulation(x0: np.ndarray = np.array([0, 0, 1.8]),      # initial position
-                           v0: np.ndarray = np.array([10, 10, 10]),     # initial velocity
-                           g: np.ndarray = np.array([0, 0, -9.81]),     # gravitational acceleration
-                           w: np.ndarray = np.array([-10, 10, 0]),      # wind
-                           b: float = 0.1,                              # drag coefficient
-                           m: float = 1.0,                              # mass
-                           rho: float = 1.225,                          # air density
-                           r: float = 0.1,                              # radius of ball
-                           a: np.ndarray = np.array([0, 0, 0]),         # thrust
-                           T: float = 10.0,                             # total run time in seconds
-                           dt: float = 0.1,                             # time step
-                           break_on_impact: bool = True                 # break the simulation when the object hits the ground
-                           ) -> np.ndarray:
+def physics_ODE_simulation(
+        x0_x: float,
+        x0_y: float,
+        x0_z: float,
+        v0_x: float,
+        v0_y: float,
+        v0_z: float,
+        g_x: float,
+        g_y: float,
+        g_z: float,
+        w_x: float,
+        w_y: float,
+        w_z: float,
+        b: float,
+        m: float,
+        rho: float,
+        r: float,
+        a_x: float,
+        a_y: float,
+        a_z: float,
+        T: float = 10.0,
+        dt: float = 0.1,
+        break_on_impact: bool = True,
+        *args: Any, **kwargs: Any) -> np.ndarray:
+    """
+    Simulate the motion of a projectile with drag and wind.
+
+    Parameters
+    ----------
+    x0_x : float
+        Initial x position
+    x0_y : float
+        Initial y position
+    x0_z : float
+        Initial z position
+    v0_x : float
+        Initial x velocity
+    v0_y : float
+        Initial y velocity
+    v0_z : float
+        Initial z velocity
+    g_x : float
+        x component of gravitational acceleration
+    g_y : float
+        y component of gravitational acceleration
+    g_z : float
+        z component of gravitational acceleration
+    w_x : float
+        x component of wind
+    w_y : float
+        y component of wind
+    w_z : float
+        z component of wind
+    b : float
+        Drag coefficient
+    m : float
+        Mass of object
+    rho : float
+        Air density
+    r : float
+        Radius of ball
+    a_x : float
+        x component of thrust
+    a_y : float
+        y component of thrust
+    a_z : float
+        z component of thrust
+    T : float
+        Total time to simulate
+    dt : float
+        Time step
+    break_on_impact : bool
+        Whether to stop the simulation when the object hits the ground
+    *args : list
+        Ignored. For compatibility with other functions
+    **kwargs : dict
+        Ignored. For compatibility with other functions
+
+    Returns
+    -------
+    np.ndarray
+        Position of object at each time step
+    """
+
+    x0 = np.array([x0_x, x0_y, x0_z])
+    v0 = np.array([v0_x, v0_y, v0_z])
+    g = np.array([g_x, g_y, g_z])
+    w = np.array([w_x, w_y, w_z])
+    a = np.array([a_x, a_y, a_z])
 
     # create time grid
     t = np.arange(0, T, dt)
@@ -61,88 +165,89 @@ def physics_ODE_simulation(x0: np.ndarray = np.array([0, 0, 1.8]),      # initia
     return x_sol
 
 
-def get_data(
-        x0_pdf: Callable = lambda size: np.random.uniform(0, 10, size=size),
-        v0_pdf: Callable = lambda size: np.random.uniform(-10, 10, size=size) + np.array([0, 0, 9]),
-        g_pdf: Callable = lambda size: np.random.normal(9.81, 0.1, size=size) * np.array([0, 0, -1]),
-        w_pdf: Callable = lambda size: np.random.normal(0, 1, size=size) * np.array([1, 1, 0.1]),
-        b_pdf: Callable = lambda size: np.random.uniform(0, 1, size=size),
-        m_pdf: Callable = lambda size: np.random.uniform(0.5, 1.5, size=size),
-        rho_pdf: Callable = lambda size: np.random.uniform(1.0, 1.5, size=size),
-        r_pdf: Callable = lambda size: np.random.uniform(0.05, 0.15, size=size),
-        a_pdf: Callable = lambda size: np.random.uniform(0, 0, size=size),
-        T: float = 5.0,
+def calculate_point_of_impact(
+        x0_x: float,
+        x0_y: float,
+        x0_z: float,
+        v0_x: float,
+        v0_y: float,
+        v0_z: float,
+        g_x: float,
+        g_y: float,
+        g_z: float,
+        w_x: float,
+        w_y: float,
+        w_z: float,
+        b: float,
+        m: float,
+        rho: float,
+        r: float,
+        a_x: float,
+        a_y: float,
+        a_z: float,
         dt: float = 0.1,
-        N: int = 1,
-        break_on_impact: bool = False) -> tuple[np.ndarray, np.ndarray]:
+        *args: Any, **kwargs: Any) -> np.ndarray:
     """
-    Create a dataset from prior parameter distributions and the simulation model.
+    Calculate the point of impact of a projectile with drag and wind.
 
     Parameters
     ----------
-    x0_pdf : function
-        A function that returns a sample from the prior distribution of the initial position.
-    v0_pdf : function
-        A function that returns a sample from the prior distribution of the initial velocity.
-    g_pdf : function
-        A function that returns a sample from the prior distribution of the gravitational acceleration.
-    w_pdf : function
-        A function that returns a sample from the prior distribution of the wind.
-    b_pdf : function
-        A function that returns a sample from the prior distribution of the drag coefficient.
-    m_pdf : function
-        A function that returns a sample from the prior distribution of the mass.
-    a_pdf : function
-        A function that returns a sample from the prior distribution of the thrust.
-    T : float
-        The total run time in seconds.
+    x0_x : float
+        Initial x position
+    x0_y : float
+        Initial y position
+    x0_z : float
+        Initial z position
+    v0_x : float
+        Initial x velocity
+    v0_y : float
+        Initial y velocity
+    v0_z : float
+        Initial z velocity
+    g_x : float
+        x component of gravitational acceleration
+    g_y : float
+        y component of gravitational acceleration
+    g_z : float
+        z component of gravitational acceleration
+    w_x : float
+        x component of wind
+    w_y : float
+        y component of wind
+    w_z : float
+        z component of wind
+    b : float
+        Drag coefficient
+    m : float
+        Mass of object
+    rho : float
+        Air density
+    r : float
+        Radius of ball
+    a_x : float
+        x component of thrust
+    a_y : float
+        y component of thrust
+    a_z : float
+        z component of thrust
     dt : float
-        The time step.
-    N : int
-        The number of simulations to run.
+        Time step
+    *args : list
+        Ignored. For compatibility with other functions
+    **kwargs : dict
+        Ignored. For compatibility with other functions
 
     Returns
     -------
-    X : array
-        The simulated data, shape (N, int(T / dt), 3).
-    y : array
-        The parameters used to simulate the data, shape (N, 14).
+    np.ndarray
+        Point of impact
     """
 
-    x0 = x0_pdf(size=(N, 3))
-    v0 = v0_pdf(size=(N, 3))
-    g = g_pdf(size=(N, 3))
-    w = w_pdf(size=(N, 3))
-    b = b_pdf(size=(N,))
-    m = m_pdf(size=(N,))
-    rho = rho_pdf(size=(N,))
-    r = r_pdf(size=(N,))
-    a = a_pdf(size=(N, 3))
-
-    # Run the simulation
-    X = np.zeros((N, int(T / dt), 3))
-    for i in tqdm(range(N)):
-        X[i] = physics_ODE_simulation(x0[i], v0[i], g[i], w[i], b[i], m[i], rho[i], r[i], a[i], T, dt, break_on_impact=break_on_impact)
-
-    # Stack the parameters into a single vector for each simulation
-    y = np.column_stack([x0, v0, g, w, b, m, a])
-
-    return X, y
-
-
-# calculate point of impact for given parameters
-
-def calculate_point_of_impact(x0: np.ndarray = np.array([0, 0, 1.8]),      # initial position
-                              v0: np.ndarray = np.array([10, 10, 10]),     # initial velocity
-                              g: np.ndarray = np.array([0, 0, -9.81]),     # gravitational acceleration
-                              w: np.ndarray = np.array([-10, 2.7, 0]),      # wind
-                              b: float = 0.1,                              # drag coefficient
-                              m: float = 1.0,                              # mass
-                              rho: float = 1.225,                          # air density
-                              r: float = 0.1,                              # radius of ball
-                              a: np.ndarray = np.array([0, 0, 0]),         # thrust
-                              dt: float = 0.1                              # time step
-                              ) -> np.ndarray:
+    x0 = np.array([x0_x, x0_y, x0_z])
+    v0 = np.array([v0_x, v0_y, v0_z])
+    g = np.array([g_x, g_y, g_z])
+    w = np.array([w_x, w_y, w_z])
+    a = np.array([a_x, a_y, a_z])
 
     # initial time
     t = 0.0
@@ -167,4 +272,5 @@ def calculate_point_of_impact(x0: np.ndarray = np.array([0, 0, 1.8]),      # ini
         # update time
         t += dt
 
+    # HACK
     return np.array([999, 999, 999])  # if the object doesn't hit the ground within 120 seconds, return a point far away to filter it out
