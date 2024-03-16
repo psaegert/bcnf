@@ -321,7 +321,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
             # Apply the inverse network
             return self.inverse(z, y).view(n_samples, self.size)
-        elif y.ndim == 2:
+        elif y.ndim > 1:
             if outer:
                 # if y.shape[1] != n_input_conditions:
                 #     raise ValueError(f"y must have shape (n_samples_per_condition, {n_input_conditions}), but got y.shape = {y.shape}")
@@ -330,7 +330,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
                 # Generate n_samples for each condition in y
                 z = sigma * torch.randn(n_samples * n_samples_per_condition, self.size).to(self.device)
-                y = y.repeat(n_samples, 1)
+                y = y.repeat(n_samples, *([1] * (y.ndim - 1)))
 
                 # Apply the inverse network
                 return self.inverse(z, y).view(n_samples, n_samples_per_condition, self.size)
