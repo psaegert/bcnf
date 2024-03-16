@@ -2,6 +2,14 @@ import os
 from typing import Iterator
 
 import numpy as np
+import torch
+
+
+def inn_nll_loss(z: torch.Tensor, log_det_J: torch.Tensor, reduction: str = 'mean') -> torch.Tensor:
+    if reduction == 'mean':
+        return torch.mean(0.5 * torch.sum(z**2, dim=1) - log_det_J)
+    else:
+        return 0.5 * torch.sum(z**2, dim=1) - log_det_J
 
 
 def get_gaussian_kernel(sigma: float, window_size: int = None) -> np.ndarray:

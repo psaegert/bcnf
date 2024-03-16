@@ -30,6 +30,7 @@ class InvertibleLayer(nn.Module):
 class ConditionalInvertibleLayer(nn.Module):
     log_det_J: float | torch.Tensor | None
     n_conditions: int
+    device: str
 
     @property
     def n_params(self) -> int:
@@ -49,6 +50,7 @@ class ConditionalNestedNeuralNetwork(nn.Module):
         super(ConditionalNestedNeuralNetwork, self).__init__()
 
         self.n_conditions = n_conditions
+        self.device = device
 
         self.nn = nn.Sequential()
 
@@ -99,6 +101,7 @@ class ConditionalAffineCouplingLayer(ConditionalInvertibleLayer):
 
         self.n_conditions = n_conditions
         self.log_det_J: torch.Tensor = torch.zeros(1).to(device)
+        self.device = device
 
         # Create the nested neural network
         self.nn = ConditionalNestedNeuralNetwork(
@@ -161,6 +164,7 @@ class OrthonormalTransformation(ConditionalInvertibleLayer):
         super(OrthonormalTransformation, self).__init__()
 
         self.log_det_J: float = 0
+        self.device: str = "cpu"
 
         # Create the random orthonormal matrix via QR decomposition
         self.orthonormal_matrix: torch.Tensor = nn.Parameter(torch.linalg.qr(torch.randn(input_size, input_size))[0], requires_grad=False)
@@ -336,9 +340,6 @@ class CondRealNVP(ConditionalInvertibleLayer):
         y = y.to(self.device)
 
         if y.ndim == 1:
-            # if len(y) != n_input_conditions:
-            #     raise ValueError(f"y must have length {n_input_conditions}, but got len(y) = {len(y)}")
-
             # Generate n_samples for each condition in y
             z = sigma * torch.randn(n_samples, self.size).to(self.device)
             y = y.repeat(n_samples, 1)
@@ -347,9 +348,6 @@ class CondRealNVP(ConditionalInvertibleLayer):
             return self.inverse(z, y).view(n_samples, self.size)
         elif y.ndim > 1:
             if outer:
-                # if y.shape[1] != n_input_conditions:
-                #     raise ValueError(f"y must have shape (n_samples_per_condition, {n_input_conditions}), but got y.shape = {y.shape}")
-
                 n_samples_per_condition = y.shape[0]
 
                 # Generate n_samples for each condition in y
@@ -359,9 +357,6 @@ class CondRealNVP(ConditionalInvertibleLayer):
                 # Apply the inverse network
                 return self.inverse(z, y).view(n_samples, n_samples_per_condition, self.size)
             else:
-                # if y.shape[0] != n_samples or y.shape[1] != n_input_conditions:
-                #     raise ValueError(f"y must have shape (n_samples, {n_input_conditions}), but got y.shape = {y.shape}")
-
                 z = sigma * torch.randn(n_samples, self.size).to(self.device)
 
                 return self.inverse(z, y).view(n_samples, self.size)
