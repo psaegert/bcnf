@@ -259,6 +259,10 @@ class Trainer():
             self.history_handler.update_parameter_history("lr", optimizer.param_groups[0]['lr'])
             self.history_handler.update_parameter_history("distance_to_last_best_val_loss", epoch - self.history_handler.best_val_epoch)
             self.history_handler.update_parameter_history("time", datetime.datetime.now().timestamp())
+            self.history_handler.update_parameter_history("z_mean_mean", z_mean.mean().item())
+            self.history_handler.update_parameter_history("z_mean_std", z_mean.std().item())
+            self.history_handler.update_parameter_history("z_std_mean", z_std.mean().item())
+            self.history_handler.update_parameter_history("z_std_std", z_std.std().item())
 
             # Update the description of the progress bar
             pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f} (avg: {self.history_handler.val_loss_rolling_avg:.4f}, min: {self.history_handler.best_val_loss:.4f}) | lr: {optimizer.param_groups[0]['lr']:.2e} - Patience: {epoch - self.history_handler.best_val_epoch}/{self.history_handler.val_loss_patience} - z: ({z_mean.mean().item():.4f} ± {z_mean.std().item():.4f}) ± ({z_std.mean().item():.4f} ± {z_std.std().item():.4f})")

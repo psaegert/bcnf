@@ -33,7 +33,11 @@ class TrainerParameterHistoryHandler():
             "val_loss": [],
             "lr": [],
             "distance_to_last_best_val_loss": [],
-            "time": []
+            "time": [],
+            "z_mean_mean": [],
+            "z_mean_std": [],
+            "z_std_mean": [],
+            "z_std_std": [],
         }
         self.epoch = 0
         self.fold = fold
