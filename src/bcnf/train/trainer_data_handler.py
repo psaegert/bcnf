@@ -169,7 +169,7 @@ class TrainerDataHandler:
         val_data : torch.utils.data.Subset
             The validation data
         """
-        train_size = int(split_ratio * len(dataset))
+        train_size = int(1 - split_ratio * len(dataset))
 
         # Create a random sampler to shuffle the indices
         indices = list(range(len(dataset)))

@@ -1,4 +1,4 @@
-from typing import Type
+from typing import Any, Type
 
 import numpy as np
 import torch
@@ -17,8 +17,7 @@ class FeatureNetwork(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
 
-    def to(self, *args, **kwargs):  # type: ignore
-        self.nn = self.nn.to(*args, **kwargs)  # type: ignore
+    def to(self, *args: Any, **kwargs: Any) -> 'FeatureNetwork':
         return super().to(*args, **kwargs)
 
 
@@ -46,6 +45,10 @@ class FullyConnectedFeatureNetwork(FeatureNetwork):
 
             self.nn.append(nn.Linear(sizes[-2], sizes[-1]))
 
+    def to(self, *args: Any, **kwargs: Any) -> 'FullyConnectedFeatureNetwork':
+        self.nn = self.nn.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = x.view(x.size(0), -1)
         return self.nn.forward(x)
@@ -62,6 +65,11 @@ class LSTMFeatureNetwork(FeatureNetwork):
             raise ValueError(f'Pooling method {pooling} not supported. Use either "mean" or "max".')
 
         self.pooling = pooling
+
+    def to(self, *args: Any, **kwargs: Any) -> 'LSTMFeatureNetwork':
+        self.lstm = self.lstm.to(*args, **kwargs)
+        self.linear = self.linear.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = x.permute(1, 0, 2)  # Turn (batch_size, seq_len, n_features) into (seq_len, batch_size, n_features) for compatibility with LSTMs
@@ -90,6 +98,13 @@ class MultiHeadAttention(nn.Module):
         self.v_linear = nn.Linear(d_model, d_model)
 
         self.fc_out = nn.Linear(d_model, d_model)
+
+    def to(self, *args: Any, **kwargs: Any) -> 'MultiHeadAttention':
+        self.q_linear = self.q_linear.to(*args, **kwargs)
+        self.k_linear = self.k_linear.to(*args, **kwargs)
+        self.v_linear = self.v_linear.to(*args, **kwargs)
+        self.fc_out = self.fc_out.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
 
     def forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, mask: bool = None) -> torch.Tensor:
         # Linear transformations for query, key, and value
@@ -135,6 +150,14 @@ class TransformerBlock(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
 
+    def to(self, *args: Any, **kwargs: Any) -> 'TransformerBlock':
+        self.attention = self.attention.to(*args, **kwargs)
+        self.norm1 = self.norm1.to(*args, **kwargs)
+        self.norm2 = self.norm2.to(*args, **kwargs)
+        self.ffn = self.ffn.to(*args, **kwargs)
+        self.dropout = self.dropout.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         attn_output = self.attention(x, x, x)
         x = self.norm1(x + self.dropout(attn_output))
@@ -148,6 +171,11 @@ class Transformer(nn.Module):
         super(Transformer, self).__init__()
         self.layers = nn.ModuleList([TransformerBlock(d_model, num_heads, d_ff, dropout) for _ in range(num_layers)])
         self.fc = nn.Linear(d_model, output_size)
+
+    def to(self, *args: Any, **kwargs: Any) -> 'Transformer':
+        self.layers = self.layers.to(*args, **kwargs)
+        self.fc = self.fc.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:

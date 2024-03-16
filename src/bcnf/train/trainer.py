@@ -261,7 +261,7 @@ class Trainer():
             self.history_handler.update_parameter_history("time", datetime.datetime.now().timestamp())
 
             # Update the description of the progress bar
-            pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f} (avg: {self.history_handler.val_loss_rolling_avg:.4f}, min: {self.history_handler.best_val_loss:.4f}) | lr: {optimizer.param_groups[0]['lr']:.2e} - Patience: {epoch - self.history_handler.best_val_epoch}/{self.history_handler.val_loss_patience} - z: ({z_mean.mean():.4f} ± {z_mean.std}) ± ({z_std.mean():.4f} ± {z_std.std()})")
+            pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f} (avg: {self.history_handler.val_loss_rolling_avg:.4f}, min: {self.history_handler.best_val_loss:.4f}) | lr: {optimizer.param_groups[0]['lr']:.2e} - Patience: {epoch - self.history_handler.best_val_epoch}/{self.history_handler.val_loss_patience} - z: ({z_mean.mean().item():.4f} ± {z_mean.std().item():.4f}) ± ({z_std.mean().item():.4f} ± {z_std.std().item():.4f})")
 
             # Step the scheduler
             if scheduler is not None:
@@ -296,12 +296,13 @@ class Trainer():
         x = x.to(model.device)
         y = y.to(model.device)
 
+        optimizer.zero_grad()
+
         # Forward pass ➡
         z = model.forward(y, x, log_det_J=True)
         loss = loss_function(z, model.log_det_J)
 
         # Backward pass ⬅
-        optimizer.zero_grad()
         loss.backward()
 
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -327,4 +328,4 @@ class Trainer():
         # Calculate the loss
         loss = loss_function(z, model.log_det_J)
 
-        return loss.item(), z.mean(dim=0).item(), z.std(dim=0).item()
+        return loss.item(), z.mean(dim=0), z.std(dim=0)

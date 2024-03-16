@@ -53,7 +53,7 @@ lr_scheduler:
 
 training:
   validation_split: 0.2
-  val_loss_window_size: 10
+  val_loss_window_size: 32
   val_loss_patience: 500
   val_loss_tolerance: 1e-1
   val_loss_tolerance_mode: "abs"
