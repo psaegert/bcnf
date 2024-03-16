@@ -5,12 +5,14 @@ import wandb
 
 
 class TrainerParameterHistoryHandler():
-    def __init__(self,
-                 val_loss_window_size: int,
-                 val_loss_patience: int | None = None,
-                 val_loss_tolerance_mode: str = "rel",
-                 val_loss_tolerance: float = 1e-3,
-                 fold: int = 1) -> None:
+    def __init__(
+            self,
+            val_loss_window_size: int,
+            val_loss_patience: int | None = None,
+            val_loss_tolerance_mode: str = "abs",
+            val_loss_tolerance: float = 1e-1,
+            fold: int = 1) -> None:
+
         if val_loss_tolerance_mode not in ["rel", "abs"]:
             raise ValueError("val_loss_tolerance_mode must be either 'rel' or 'abs'")
         else:
@@ -26,7 +28,7 @@ class TrainerParameterHistoryHandler():
         self.val_loss_patience = val_loss_patience
         self.val_loss_tolerance = val_loss_tolerance
 
-        self.parameter_history: dict = {
+        self.parameter_history: dict[str, list] = {
             "train_loss": [],
             "val_loss": [],
             "lr": [],
@@ -51,10 +53,7 @@ class TrainerParameterHistoryHandler():
         """
         self.epoch = epoch
 
-    def update_parameter_history(self,
-                                 parameter: str,
-                                 value: Any) -> None:
-
+    def update_parameter_history(self, parameter: str, value: Any) -> None:
         self.parameter_history[parameter].append((self.epoch + 1, value))
         wandb.log({"epoch": self.epoch + 1, f"{parameter}_fold_{self.fold}": value}, step=self.epoch)  # type: ignore
 

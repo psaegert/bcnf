@@ -1,6 +1,8 @@
 # type: ignore
 
+import copy
 import numbers
+import pickle
 import warnings
 
 import numpy as np
@@ -24,7 +26,8 @@ def gp_minimize_fixed(
         acq_func="gp_hedge", acq_optimizer="auto", x0=None, y0=None,
         random_state=None, verbose=False, callback=None,
         n_points=10000, n_restarts_optimizer=5, xi=0.01, kappa=1.96,
-        noise="gaussian", n_jobs=1, model_queue_size=None):
+        noise="gaussian", n_jobs=1, model_queue_size=None,
+        checkpoint_file=None):
 
     # Check params
     rng = check_random_state(random_state)
@@ -44,7 +47,8 @@ def gp_minimize_fixed(
         initial_point_generator=initial_point_generator,
         n_restarts_optimizer=n_restarts_optimizer,
         x0=x0, y0=y0, random_state=rng, verbose=verbose,
-        callback=callback, n_jobs=n_jobs, model_queue_size=model_queue_size)
+        callback=callback, n_jobs=n_jobs, model_queue_size=model_queue_size,
+        checkpoint_file=checkpoint_file)
 
 
 def base_minimize_fixed(
@@ -55,9 +59,12 @@ def base_minimize_fixed(
         acq_func="EI", acq_optimizer="lbfgs",
         x0=None, y0=None, random_state=None, verbose=False,
         callback=None, n_points=10000, n_restarts_optimizer=5,
-        xi=0.01, kappa=1.96, n_jobs=1, model_queue_size=None):
+        xi=0.01, kappa=1.96, n_jobs=1, model_queue_size=None,
+        checkpoint_file=None):
     specs = {"args": locals(),
              "function": "base_minimize"}
+
+    print(specs)
 
     acq_optimizer_kwargs = {
         "n_points": n_points, "n_restarts_optimizer": n_restarts_optimizer,
@@ -145,9 +152,9 @@ def base_minimize_fixed(
             raise ValueError("`x0` and `y0` should have the same length")
         print(f'Telling optimizer about {len(x0)} initial points')
         result = optimizer.tell(x0, y0)
-        result.specs = specs
-        if eval_callbacks(callbacks, result):
-            return result
+        # result.specs = specs
+        # if eval_callbacks(callbacks, result):
+        #     return result
 
     # Optimize
     for n in range(n_calls):
@@ -156,7 +163,32 @@ def base_minimize_fixed(
         next_y = func(next_x)
         result = optimizer.tell(next_x, next_y)
         result.specs = specs
+        save_checkpoint(result, checkpoint_file)
         if eval_callbacks(callbacks, result):
             break
 
     return result
+
+
+def save_checkpoint(result, checkpoint_file):
+    """
+    Save the result of the optimization to a checkpoint file.
+    Used as a callback in the optimization function.
+
+    Parameters
+    ----------
+    result : OptimizeResult
+        The result of the optimization.
+    """
+    with open(checkpoint_file, 'wb') as f:
+        # Ignore
+        # - result['specs']['args']['func']
+        # - result['specs']['args']['callback']
+        # because it causes problems when reading somewhere else
+        result_no_func = copy.deepcopy(result)
+        del result_no_func['specs']['args']['func']
+        del result_no_func['specs']['args']['callback']
+
+        print(f'Saving checkpoint with {len(result_no_func["x_iters"])} iterations and {len(result_no_func["func_vals"])} function evaluations (minimum: {min(result_no_func["func_vals"])}).')
+
+        pickle.dump(result_no_func, f)
