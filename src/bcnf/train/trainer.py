@@ -4,11 +4,11 @@ from typing import Any, Callable
 
 import numpy as np
 import torch
+import wandb
 from sklearn.model_selection import KFold
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
-import wandb
 from bcnf.errors import TrainingDivergedError
 from bcnf.factories import OptimizerFactory, SchedulerFactory
 from bcnf.models.cnf import ConditionalInvertibleLayer

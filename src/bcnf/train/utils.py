@@ -2,10 +2,10 @@ import os
 from typing import Any
 
 import torch
+import wandb
 from torch._C import dtype
 from torchsummary import summary
 
-import wandb
 from bcnf.utils import get_dir
 
 
