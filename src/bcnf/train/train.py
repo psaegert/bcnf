@@ -183,7 +183,7 @@ def train_CondRealNVP(
             loss_history["early_stop_counter"].append((epoch + 1, epoch - best_val_epoch))
             loss_history["time"].append((epoch + 1, datetime.datetime.now().timestamp()))
 
-            pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f} (avg: {val_loss_rolling_avg:.4f}, min: {best_val_loss:.4f}) | lr: {optimizer.param_groups[0]['lr']:.2e} - Patience: {epoch - best_val_epoch}/{val_loss_patience}")
+            pbar.set_description(f"Train: {train_loss:.4f} - Val: {val_loss:.4f} (avg: {val_loss_rolling_avg:.4f}, min: {best_val_loss:.4f}) | lr: {optimizer.param_groups[0]['lr']:.2e} - Patience: {epoch - best_val_epoch}/{val_loss_patience} - z: {z.mean().item():.4f} ± {z.std().item():.4f}")
         else:
             pbar.set_description(f"Train: {train_loss:.4f}, lr: {optimizer.param_groups[0]['lr']:.2e}")
 

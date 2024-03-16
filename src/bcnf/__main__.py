@@ -1,6 +1,8 @@
 import argparse
 import sys
 
+from bcnf.utils import get_dir
+
 
 def main(argv: str = None) -> None:
     """
@@ -12,7 +14,7 @@ def main(argv: str = None) -> None:
     subparsers = parser.add_subparsers(dest='command_name', required=True)
 
     # TODO: Remove demo command
-    demo_parser = subparsers.add_parser("demo")
+    demo_parser = subparsers.add_parser("run-trainer")
     demo_parser.add_argument('--dummy_option', type=str, default='dummy_value', help='Dummy option')
 
     # Evaluate input
@@ -20,8 +22,19 @@ def main(argv: str = None) -> None:
 
     # Execute the command
     match args.command_name:
-        case 'demo':
-            print(f'Running demo with dummy_option={args.dummy_option}')
+        case 'run-trainer':
+            from dynaconf import Dynaconf
+
+            from bcnf.train.trainer import Trainer
+
+            config_file_path = f'{get_dir()}/configs/trainer_config.yaml'
+            config = Dynaconf(settings_files=config_file_path,
+                              lowercase_read=True)
+
+            trainer = Trainer(config=config, project_name='bcnf-test')
+
+            trainer.training_pipeline()
+
         case _:
             print('Unknown command: ', args.command)
             sys.exit(1)

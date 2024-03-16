@@ -1,6 +1,45 @@
 import os
+import re
+from typing import Iterator
 
 import numpy as np
+import torch
+from dynaconf import Dynaconf
+
+
+def load_config(config_file: str) -> dict:
+    """
+    Load a configuration file.
+
+    Parameters
+    ----------
+    config_file : str
+        The path to the configuration file.
+
+    Returns
+    -------
+    config : dict
+        The configuration dictionary.
+    """
+    if not isinstance(config_file, str):
+        raise TypeError("config_file must be a string.")
+
+    if not os.path.exists(config_file):
+        raise FileNotFoundError(f"File '{config_file}' does not exist.")
+
+    config = Dynaconf(settings_files=[config_file])
+
+    config.data['path'] = sub_root_path(config.data['path'])
+    config.data['config_file'] = sub_root_path(config.data['config_file'])
+
+    return config
+
+
+def inn_nll_loss(z: torch.Tensor, log_det_J: torch.Tensor, reduction: str = 'mean') -> torch.Tensor:
+    if reduction == 'mean':
+        return torch.mean(0.5 * torch.sum(z**2, dim=1) - log_det_J)
+    else:
+        return 0.5 * torch.sum(z**2, dim=1) - log_det_J
 
 
 def get_gaussian_kernel(sigma: float, window_size: int = None) -> np.ndarray:
@@ -84,3 +123,53 @@ def get_dir(*args: str, create: bool = False) -> str:
         os.makedirs(os.path.join(os.path.dirname(__file__), '..', '..', *args), exist_ok=True)
 
     return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', *args))
+
+
+def sub_root_path(path: str) -> str:
+    """
+    Replace {{BCNF_ROOT}} with the root path of the project given by get_dir().
+
+    Parameters
+    ----------
+    path : str
+        The path to replace
+
+    Returns
+    -------
+    new_path : str
+        The new path with the root path replaced
+    """
+    root_path = get_dir()
+    new_path = re.sub(r"{{BCNF_ROOT}}", root_path, path)
+
+    return new_path
+
+
+class ParameterIndexMapping:
+    def __init__(self, parameters: list[str]) -> None:
+        self.parameters = parameters
+        self.map = {p: i for i, p in enumerate(parameters)}
+
+    def __len__(self) -> int:
+        return len(self.parameters)
+
+    def vectorize(self, parameter_dict: dict) -> np.ndarray:
+        return np.array([parameter_dict[p] for p in self.parameters]).T
+
+    def dictify(self, parameter_vector: np.ndarray) -> dict:
+        return {p: parameter_vector[i] for i, p in enumerate(self.parameters)}
+
+    def __getitem__(self, key: str) -> int:
+        return self.map[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.parameters)
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.parameters
+
+    def __repr__(self) -> str:
+        return str(self.parameters)
+
+    def __str__(self) -> str:
+        return str(self.parameters)
