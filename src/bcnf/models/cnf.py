@@ -260,7 +260,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
         return CondRealNVP(
             feature_network=feature_network,
             time_series_network=time_series_network,
-            parameter_index_mapping=config["global"]["parameter_selection"],
+            parameter_index_mapping=list(config["global"]["parameter_selection"]),
             **config["model"]["kwargs"])
 
     def to(self, device: str) -> "CondRealNVP":  # type: ignore

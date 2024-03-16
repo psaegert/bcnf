@@ -11,7 +11,8 @@ from tqdm import tqdm
 from bcnf.errors import TrainingDivergedError
 from bcnf.factories import OptimizerFactory, SchedulerFactory
 from bcnf.models.cnf import ConditionalInvertibleLayer
-from bcnf.train import TrainerDataHandler, TrainerParameterHistoryHandler
+from bcnf.train.trainer_data_handler import TrainerDataHandler
+from bcnf.train.trainer_loss_handler import TrainerParameterHistoryHandler
 from bcnf.train.utils import get_data_type, get_training_device
 from bcnf.utils import inn_nll_loss
 
