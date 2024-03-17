@@ -1,12 +1,12 @@
 global:
-  parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g_x','g_y',"g_z",'w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
+  parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g','w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
   dtype: "float32"
 
 data:
-  path: "{{BCNF_ROOT}}/data/bcnf-data/test_resimulation_data_T2_dt_1_15.pkl"
+  path: "{{BCNF_ROOT}}/data/bcnf-data/fixed_data_render_2s_15FPS/train"
   config_file: "{{BCNF_ROOT}}/configs/data/config.yaml"
-  n_samples: 2000
-  output_type: "trajectory"
+  n_samples: 5000
+  output_type: "trajectories"
   dt: 0.067
   T: 2.0
   ratio:
@@ -22,21 +22,26 @@ data:
 
 model:
   kwargs:
-    size: 21
-    nested_sizes: [16, 16, 16, 16, 16, 16, 16]
-    n_conditions: 80
-    n_blocks: 32
-    dropout: 0.383
+    size: 19
+    nested_sizes: [526, 526, 526, 526, 526]
+    n_conditions: 1360
+    n_blocks: 26
+    dropout: 0.407
     act_norm: True
 
 feature_network:
   type: null
 
 time_series_network:
-  type: FullyConnectedFeatureNetwork
+  type: LSTMFeatureNetwork
   kwargs:
-    sizes: [90, 80]
-    dropout: 0.244
+    input_size: 3
+    hidden_size: 212
+    output_size: 1360
+    num_layers: 2
+    dropout: 0.111
+    bidirectional: True
+    pooling: "mean"
 
 optimizer:
   type: Adam

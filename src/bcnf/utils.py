@@ -1,10 +1,12 @@
 import os
+import pickle
 import re
 from typing import Iterator
 
 import numpy as np
 import torch
 from dynaconf import Dynaconf
+from tqdm import tqdm
 
 
 def load_config(config_file: str) -> dict:
@@ -154,7 +156,10 @@ class ParameterIndexMapping:
         return len(self.parameters)
 
     def vectorize(self, parameter_dict: dict) -> np.ndarray:
-        return np.array([parameter_dict[p] for p in self.parameters]).T
+        try:
+            return np.array([parameter_dict[p] for p in self.parameters]).T
+        except KeyError as e:
+            raise KeyError(f'Parameter "{e}" not found in the parameter dictionary. Have available keys: {list(parameter_dict.keys())}')
 
     def dictify(self, parameter_vector: np.ndarray) -> dict:
         return {p: parameter_vector[i] for i, p in enumerate(self.parameters)}
@@ -173,3 +178,75 @@ class ParameterIndexMapping:
 
     def __str__(self) -> str:
         return str(self.parameters)
+
+
+def load_data(path: str, keep_output_type: str | None = None, verbose: bool = False, errors: str = 'raise') -> dict[str, list]:
+    """
+    Load data from a file or directory of files
+
+    Parameters
+    ----------
+    path : str
+        The path to the file or directory of files
+    keep_output_type : str, optional
+        The type of the output, by default None (all types are kept)
+    verbose : bool, optional
+        Whether to show a progress bar, by default False
+
+    Returns
+    -------
+    dict
+        A dictionary of the data
+    """
+    equivalent_keys = {
+        'trajectories': ['traj', 'trajectory'],
+        'videos': ['render', 'cams'],
+    }
+
+    if os.path.isfile(path):
+        if verbose:
+            print('Loading data from file...')
+        with open(path, 'rb') as file:
+            data = pickle.load(file)
+    else:
+        data = {}
+        pbar = tqdm(desc='Loading data from directory', disable=not verbose, total=sum([len(files) for _, _, files in os.walk(path)]))
+        for root, _, files in os.walk(path):
+            for file in sorted(files):  # type: ignore
+                pbar.set_postfix(file=file)
+                # Read the file
+                with open(os.path.join(root, file), 'rb') as f:  # type: ignore
+                    file_data = pickle.load(f)
+
+                    # Rename the keys to their canonical names
+                    for key, equivalent in equivalent_keys.items():
+                        for e in equivalent:
+                            if e in file_data:
+                                file_data[key] = file_data.pop(e)
+
+                    # Add the data to the dictionary
+                    for key, value in file_data.items():
+                        if key not in data:
+                            data[key] = []
+                        data[key].extend(value)
+                pbar.update(1)
+
+    # Keep only the specified output type (given that it is a key of equivalent_keys)
+    if keep_output_type is not None and keep_output_type in equivalent_keys:
+        for key in equivalent_keys.keys():
+
+            # Remove every key that is not specified
+            if key != keep_output_type and key in data:
+                data.pop(key)
+
+    # Check if all values have equal length
+    value_lengths = [len(v) for v in data.values()]
+    if len(set(value_lengths)) != 1:
+        if errors == 'raise':
+            raise ValueError(f'All values of the key "{key}" must have the same length')
+        elif errors in ['print', 'warn']:
+            print(f'Warning: All values of the key "{key}" must have the same length')
+        elif errors == 'ignore':
+            pass
+
+    return data
