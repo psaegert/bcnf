@@ -1,5 +1,5 @@
 global:
-  parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g','w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
+  parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g_x','g_y',"g_z",'w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
   dtype: "float32"
 
 data:
@@ -22,11 +22,11 @@ data:
 
 model:
   kwargs:
-    size: 19
-    nested_sizes: [526, 526, 526, 526, 526]
-    n_conditions: 1360
-    n_blocks: 26
-    dropout: 0.407
+    size: 21
+    nested_sizes: [16, 16, 16, 16, 16, 16, 16]
+    n_conditions: 80
+    n_blocks: 32
+    dropout: 0.383
     act_norm: True
 
 feature_network:
@@ -35,8 +35,8 @@ feature_network:
 time_series_network:
   type: FullyConnectedFeatureNetwork
   kwargs:
-    sizes: [90, 212, 212, 212, 212, 212, 212, 212, 1360]
-    dropout: 0.111
+    sizes: [90, 80]
+    dropout: 0.244
 
 optimizer:
   type: Adam
