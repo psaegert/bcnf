@@ -1,5 +1,5 @@
 global:
-  parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g_x','g_y',"g_z",'w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
+  parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g','w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
   dtype: "float32"
 
 data:
@@ -33,7 +33,7 @@ feature_network:
   type: null
 
 time_series_network:
-  type: FullyConnectedFeatureNetwork
+  type: FullyConnected
   kwargs:
     sizes: [90, 80]
     dropout: 0.244

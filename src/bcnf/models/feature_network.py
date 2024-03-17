@@ -55,10 +55,10 @@ class FullyConnectedFeatureNetwork(FeatureNetwork):
 
 
 class LSTMFeatureNetwork(FeatureNetwork):
-    def __init__(self, input_size: int, hidden_size: int, output_size: int, num_layers: int, dropout: float = 0.0, bidirectional: bool = False, pooling: str = 'mean') -> None:
+    def __init__(self, input_size: int, hidden_size: int, output_size: int, n_blocks: int, dropout: float = 0.0, bidirectional: bool = False, pooling: str = 'mean') -> None:
         super(LSTMFeatureNetwork, self).__init__()
 
-        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, dropout=dropout, bidirectional=bidirectional)
+        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, n_blocks=n_blocks, dropout=dropout, bidirectional=bidirectional)
         self.linear = nn.Linear(hidden_size * (2 if bidirectional else 1), output_size)
 
         if pooling not in ['mean', 'max']:
@@ -87,11 +87,11 @@ class LSTMFeatureNetwork(FeatureNetwork):
 # Thank you to whoever wrote this code
 # https://www.phind.com/search?cache=g0lcwwuzznvnajlwok2676zp
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model: int, num_heads: int) -> None:
+    def __init__(self, d_model: int, n_heads: int) -> None:
         super(MultiHeadAttention, self).__init__()
         self.d_model = d_model
-        self.num_heads = num_heads
-        self.head_dim = d_model // num_heads
+        self.n_heads = n_heads
+        self.head_dim = d_model // n_heads
 
         self.q_linear = nn.Linear(d_model, d_model)
         self.k_linear = nn.Linear(d_model, d_model)
@@ -111,9 +111,9 @@ class MultiHeadAttention(nn.Module):
         batch_size = query.size(0)
 
         # Perform linear operation and split into multiple heads
-        query = self.q_linear(query).view(batch_size, -1, self.num_heads, self.head_dim).transpose(1, 2)
-        key = self.k_linear(key).view(batch_size, -1, self.num_heads, self.head_dim).transpose(1, 2)
-        value = self.v_linear(value).view(batch_size, -1, self.num_heads, self.head_dim).transpose(1, 2)
+        query = self.q_linear(query).view(batch_size, -1, self.n_heads, self.head_dim).transpose(1, 2)
+        key = self.k_linear(key).view(batch_size, -1, self.n_heads, self.head_dim).transpose(1, 2)
+        value = self.v_linear(value).view(batch_size, -1, self.n_heads, self.head_dim).transpose(1, 2)
 
         # Calculate attention scores
         attention_scores = torch.matmul(query, key.transpose(-2, -1)) / np.sqrt(self.head_dim)
@@ -136,16 +136,16 @@ class MultiHeadAttention(nn.Module):
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, d_model: int, num_heads: int, d_ff: int, dropout: float = 0.1) -> None:
+    def __init__(self, d_model: int, n_heads: int, ff_size: int, dropout: float = 0.1) -> None:
         super(TransformerBlock, self).__init__()
-        self.attention = MultiHeadAttention(d_model, num_heads)
+        self.attention = MultiHeadAttention(d_model, n_heads)
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
 
         self.ffn = nn.Sequential(
-            nn.Linear(d_model, d_ff),
+            nn.Linear(d_model, ff_size),
             nn.GELU(),
-            nn.Linear(d_ff, d_model)
+            nn.Linear(ff_size, d_model)
         )
 
         self.dropout = nn.Dropout(dropout)
@@ -167,20 +167,25 @@ class TransformerBlock(nn.Module):
 
 
 class Transformer(nn.Module):
-    def __init__(self, d_model: int, num_heads: int, d_ff: int, num_layers: int, output_size: int, dropout: float = 0.1) -> None:
+    def __init__(self, input_size: int, trf_size: int, n_heads: int, ff_size: int, n_blocks: int, output_size: int, dropout: float = 0.1) -> None:
         super(Transformer, self).__init__()
-        self.layers = nn.ModuleList([TransformerBlock(d_model, num_heads, d_ff, dropout) for _ in range(num_layers)])
-        self.fc = nn.Linear(d_model, output_size)
+        self.features = nn.Linear(input_size, trf_size)
+        self.layers = nn.ModuleList([TransformerBlock(trf_size, n_heads, ff_size, dropout) for _ in range(n_blocks)])
+        self.output = nn.Linear(trf_size, output_size)
 
     def to(self, *args: Any, **kwargs: Any) -> 'Transformer':
+        self.features = self.features.to(*args, **kwargs)
         self.layers = self.layers.to(*args, **kwargs)
-        self.fc = self.fc.to(*args, **kwargs)
+        self.output = self.output.to(*args, **kwargs)
         return super().to(*args, **kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.features(x)
+
         for layer in self.layers:
             x = layer(x)
 
-        x = self.fc(x[:, 0, :])
+        # Use the first token's output as the final output
+        x = self.output(x[:, 0, :])
 
         return x

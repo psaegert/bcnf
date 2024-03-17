@@ -3,7 +3,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 
-from bcnf.models.feature_network import FeatureNetwork, FullyConnectedFeatureNetwork, LSTMFeatureNetwork
+from bcnf.models.feature_network import FeatureNetwork, FullyConnectedFeatureNetwork, LSTMFeatureNetwork, Transformer
 
 
 class SchedulerFactory():
@@ -30,10 +30,12 @@ class FeatureNetworkFactory():
     @staticmethod
     def get_feature_network(network: str | None, network_kwargs: Any) -> FeatureNetwork:
         match network:
-            case "FullyConnectedFeatureNetwork":
+            case "FullyConnected":
                 return FullyConnectedFeatureNetwork(**network_kwargs)
-            case "LSTMFeatureNetwork":
+            case "LSTM":
                 return LSTMFeatureNetwork(**network_kwargs)
+            case "Transformer":
+                return Transformer(**network_kwargs)
             case None:
                 return nn.Identity()
             case _:

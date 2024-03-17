@@ -33,7 +33,7 @@ feature_network:
   type: null
 
 time_series_network:
-  type: LSTMFeatureNetwork
+  type: LSTM
   kwargs:
     input_size: 3
     hidden_size: 212
