@@ -35,7 +35,7 @@ feature_network:
 time_series_network:
   type: FullyConnectedFeatureNetwork
   kwargs:
-    sizes: [90, 212, 212, 212, 212, 212, 212, 212, 1360]
+    sizes: [90, 310, 310, 310, 310, 310, 310, 310, 1360]
     dropout: 0.111
 
 optimizer:
