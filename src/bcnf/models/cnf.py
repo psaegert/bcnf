@@ -7,7 +7,7 @@ import torch.nn as nn
 from tqdm import tqdm
 
 from bcnf.factories import FeatureNetworkFactory
-from bcnf.models.feature_network import FeatureNetwork
+from bcnf.models.feature_network import FeatureNetwork, FullyConnectedFeatureNetwork, LSTMFeatureNetwork
 from bcnf.utils import ParameterIndexMapping
 
 
@@ -269,8 +269,12 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
         if not isinstance(cnf.time_series_network, nn.Identity):
             if current_dimension is not None:
-                assert current_dimension == time_series_network.nn[0].in_features, "The output dimension of the feature network must match the input dimension of the time series network."
-            current_dimension = time_series_network.nn[-1].out_features
+                if isinstance(time_series_network, FullyConnectedFeatureNetwork):
+                    assert current_dimension == time_series_network.nn[0].in_features, "The output dimension of the feature network must match the input dimension of the time series network."
+                    current_dimension = time_series_network.nn[-1].out_features
+                elif isinstance(time_series_network, LSTMFeatureNetwork):
+                    assert current_dimension == time_series_network.lstm.input_size, "The output dimension of the feature network must match the input dimension of the time series network."
+                    current_dimension = time_series_network.linear.out_features
 
         if current_dimension is not None:
             assert current_dimension == cnf.n_conditions, "The output dimension of the time series network must match the number of conditions."
