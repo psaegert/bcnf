@@ -7,7 +7,7 @@ data:
   data_name: "test"
   config_file: "{{BCNF_ROOT}}/configs/data/config.yaml"
   n_samples: 10
-  output_type: "trajectories"
+  output_type: "videos"
   dt: 0.067
   T: 2.0
   ratio:
