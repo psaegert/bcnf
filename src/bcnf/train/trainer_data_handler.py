@@ -34,9 +34,10 @@ class TrainerDataHandler:
         dataset : TensorDataset
             A PyTorch TensorDataset containing the data for training the model
         """
-        if not os.path.exists(data_config['path']):
+        if not os.path.exists(data_config['path']) or (os.path.isdir(data_config['path']) and len(os.listdir(data_config['path'])) == 0):
             if verbose:
                 print(f'No data found at {data_config["path"]}. Generating data...')
+
             data = generate_data(
                 n=data_config['n_samples'],
                 output_type=data_config['output_type'],
@@ -47,7 +48,7 @@ class TrainerDataHandler:
                 break_on_impact=data_config['break_on_impact'],
                 do_filter=data_config['do_filter'])
 
-            with open(data_config['path'], 'wb') as f:
+            with open(os.path.join(data_config['path'], data_config['data_name']), 'wb') as f:
                 pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
         else:
             if verbose:

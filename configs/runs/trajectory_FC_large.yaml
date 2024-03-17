@@ -1,11 +1,12 @@
 global:
-  parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g','w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
+  parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g_x','g_y','g_z','w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
   dtype: "float32"
 
 data:
   path: "{{BCNF_ROOT}}/data/bcnf-data/fixed_data_render_2s_15FPS/train"
+  data_name: "test"
   config_file: "{{BCNF_ROOT}}/configs/data/config.yaml"
-  n_samples: 5000
+  n_samples: 10
   output_type: "trajectories"
   dt: 0.067
   T: 2.0
