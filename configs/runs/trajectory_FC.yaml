@@ -3,10 +3,10 @@ global:
   dtype: "float32"
 
 data:
-  path: "{{BCNF_ROOT}}/data/bcnf-data/test_resimulation_data_T2_dt_1_15.pkl"
+  path: "{{BCNF_ROOT}}/data/bcnf-data/fixed_data_render_2s_15FPS"
   config_file: "{{BCNF_ROOT}}/configs/data/config.yaml"
-  n_samples: 2000
-  output_type: "trajectory"
+  n_samples: 5000
+  output_type: "trajectories"
   dt: 0.067
   T: 2.0
   ratio:

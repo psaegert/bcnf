@@ -81,7 +81,7 @@ def generate_data_old(
 
     # Stack the parameters into a single vector for each simulation
     return {
-        'trajectory': X,
+        'trajectories': X,
         'x0_x': x0[:, 0],
         'x0_y': x0[:, 1],
         'x0_z': x0[:, 2],
@@ -298,8 +298,8 @@ def generate_data(
         do_filter: bool = True,
         verbose: bool = False) -> dict[str, list]:
 
-    if output_type not in ['videos', 'trajectory', 'parameters']:
-        raise ValueError('output_type must be one of "render", "trajectory", or "parameters"')
+    if output_type not in ['videos', 'trajectories', 'parameters']:
+        raise ValueError('output_type must be one of "render", "trajectories", or "parameters"')
 
     accepted_count = 0
     rejected_count = {
@@ -382,9 +382,9 @@ def generate_data(
 
         if output_type == 'videos':
             parameters['videos'] = videos
-            parameters['trajectory'] = trajectory
-        elif output_type == 'trajectory':
-            parameters['trajectory'] = trajectory
+            parameters['trajectories'] = trajectory
+        elif output_type == 'trajectories':
+            parameters['trajectories'] = trajectory
 
         # Complete the parameters dictionary
         if len(data) == 0:

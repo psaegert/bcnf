@@ -6,7 +6,7 @@ data:
   path: "{{BCNF_ROOT}}/data/bcnf-data/new_data.pkl"
   config_file: "{{BCNF_ROOT}}/configs/data/config.yaml"
   n_samples: 2000
-  output_type: "trajectory"
+  output_type: "trajectories"
   dt: 0.067
   T: 2.0
   ratio:

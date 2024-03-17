@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader, RandomSampler, Subset, TensorDataset
 
 from bcnf.simulation.sampling import generate_data
 # from bcnf.train.training_data_converter import RenderConverter
-from bcnf.utils import ParameterIndexMapping
+from bcnf.utils import ParameterIndexMapping, load_data
 
 
 class TrainerDataHandler:
@@ -52,13 +52,12 @@ class TrainerDataHandler:
         else:
             if verbose:
                 print(f'Loading data from {data_config["path"]}...')
-            with open(data_config['path'], 'rb') as f:
-                data = pickle.load(f)
+            data = load_data(path=data_config['path'], keep_output_type=data_config['output_type'], verbose=verbose, errors='raise')
 
         if data_config['output_type'] == 'videos':
             X = np.array(data['videos'])
-        elif data_config['output_type'] == 'trajectory':
-            X = np.array(data['trajectory'])
+        elif data_config['output_type'] == 'trajectories':
+            X = np.array(data['trajectories'])
         else:
             raise ValueError(f'Unknown output type: {data_config["output_type"]}')
 
