@@ -32,8 +32,6 @@ class TrainerDataHandler:
             The mapping for the parameters
         dtype : torch.dtype
             The data type to use for the data
-        n_files : int
-            The number of files to use for training
         verbose : bool
             Whether to print verbose output
 
@@ -64,7 +62,7 @@ class TrainerDataHandler:
             data = load_data(
                 path=data_config['path'],
                 keep_output_type=data_config['output_type'],
-                n_files=data_config['n_files'],
+                n_files=data_config.get("n_files", None),  # None means all files
                 verbose=verbose,
                 errors='raise')
 
