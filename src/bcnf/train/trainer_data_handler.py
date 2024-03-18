@@ -26,8 +26,16 @@ class TrainerDataHandler:
 
         Parameters
         ----------
-        config : dict
-            A dictionary containing the configuration parameters for the data
+        data_config : dict
+            The configuration for the data
+        parameter_index_mapping : ParameterIndexMapping
+            The mapping for the parameters
+        dtype : torch.dtype
+            The data type to use for the data
+        n_files : int
+            The number of files to use for training
+        verbose : bool
+            Whether to print verbose output
 
         Returns
         -------
@@ -53,7 +61,12 @@ class TrainerDataHandler:
         else:
             if verbose:
                 print(f'Loading data from {data_config["path"]}...')
-            data = load_data(path=data_config['path'], keep_output_type=data_config['output_type'], verbose=verbose, errors='raise')
+            data = load_data(
+                path=data_config['path'],
+                keep_output_type=data_config['output_type'],
+                n_files=data_config['n_files'],
+                verbose=verbose,
+                errors='raise')
 
         if data_config['output_type'] == 'videos':
             X = np.array(data['videos'])
@@ -63,6 +76,8 @@ class TrainerDataHandler:
             raise ValueError(f'Unknown output type: {data_config["output_type"]}')
 
         y = parameter_index_mapping.vectorize(data)
+
+        del data
 
         # Make the correct type for the data
         X = torch.tensor(X, dtype=dtype).to(data_config['device'])
@@ -75,6 +90,8 @@ class TrainerDataHandler:
 
         # Matches pairs of lables and data, so dataset[0] returns tuple of the first entry in X and y
         dataset = TensorDataset(X, y)
+
+        del X, y
 
         return dataset
 
