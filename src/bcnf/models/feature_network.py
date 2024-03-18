@@ -55,10 +55,10 @@ class FullyConnectedFeatureNetwork(FeatureNetwork):
 
 
 class LSTMFeatureNetwork(FeatureNetwork):
-    def __init__(self, input_size: int, hidden_size: int, output_size: int, n_blocks: int, dropout: float = 0.0, bidirectional: bool = False, pooling: str = 'mean') -> None:
+    def __init__(self, input_size: int, hidden_size: int, output_size: int, num_layers: int, dropout: float = 0.0, bidirectional: bool = False, pooling: str = 'mean') -> None:
         super(LSTMFeatureNetwork, self).__init__()
 
-        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, n_blocks=n_blocks, dropout=dropout, bidirectional=bidirectional)
+        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, dropout=dropout, bidirectional=bidirectional)
         self.linear = nn.Linear(hidden_size * (2 if bidirectional else 1), output_size)
 
         if pooling not in ['mean', 'max']:

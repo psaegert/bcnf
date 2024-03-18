@@ -22,7 +22,7 @@ data:
 
 model:
   kwargs:
-    size: 21
+    size: 19
     nested_sizes: [16, 16, 16, 16, 16, 16, 16]
     n_conditions: 80
     n_blocks: 32
