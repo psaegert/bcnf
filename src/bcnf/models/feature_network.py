@@ -30,6 +30,7 @@ class FullyConnectedFeatureNetwork(FeatureNetwork):
         super(FullyConnectedFeatureNetwork, self).__init__()
 
         self.nn = nn.Sequential()
+        self.output_size_lin = sizes[-1]
 
         if len(sizes) < 2:
             # No transformations from one layer to another, use identity (0 layers)
@@ -50,7 +51,7 @@ class FullyConnectedFeatureNetwork(FeatureNetwork):
         return super().to(*args, **kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x.view(x.size(0), -1)
+        # x = x.view(x.size(0), -1)
         return self.nn.forward(x)
 
 
