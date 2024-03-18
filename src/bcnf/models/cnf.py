@@ -265,7 +265,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
         current_dimension = None
         if not isinstance(cnf.feature_network, nn.Identity):
-            current_dimension = feature_network.nn[-1].out_features
+            current_dimension = cnf.feature_network.output_size_lin
 
         if not isinstance(cnf.time_series_network, nn.Identity):
             if current_dimension is not None:

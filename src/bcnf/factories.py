@@ -3,6 +3,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 
+from bcnf.models.cnn import CNN
 from bcnf.models.feature_network import FeatureNetwork, FullyConnectedFeatureNetwork, LSTMFeatureNetwork, Transformer
 
 
@@ -32,6 +33,8 @@ class FeatureNetworkFactory():
         match network:
             case "FullyConnected":
                 return FullyConnectedFeatureNetwork(**network_kwargs)
+            case "CNN":
+                return CNN(**network_kwargs)
             case "LSTM":
                 return LSTMFeatureNetwork(**network_kwargs)
             case "Transformer":
