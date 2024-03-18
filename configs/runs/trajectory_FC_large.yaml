@@ -34,7 +34,7 @@ feature_network:
   type: null
 
 time_series_network:
-  type: FullyConnectedFeatureNetwork
+  type: FullyConnected
   kwargs:
     sizes: [90, 310, 310, 310, 310, 310, 310, 310, 1360]
     dropout: 0.111
