@@ -26,17 +26,24 @@ class TrainerDataHandler:
 
         Parameters
         ----------
-        config : dict
-            A dictionary containing the configuration parameters for the data
+        data_config : dict
+            The configuration for the data
+        parameter_index_mapping : ParameterIndexMapping
+            The mapping for the parameters
+        dtype : torch.dtype
+            The data type to use for the data
+        verbose : bool
+            Whether to print verbose output
 
         Returns
         -------
         dataset : TensorDataset
             A PyTorch TensorDataset containing the data for training the model
         """
-        if not os.path.exists(data_config['path']):
+        if not os.path.exists(data_config['path']) or (os.path.isdir(data_config['path']) and len(os.listdir(data_config['path'])) == 0):
             if verbose:
                 print(f'No data found at {data_config["path"]}. Generating data...')
+
             data = generate_data(
                 n=data_config['n_samples'],
                 output_type=data_config['output_type'],
@@ -47,12 +54,17 @@ class TrainerDataHandler:
                 break_on_impact=data_config['break_on_impact'],
                 do_filter=data_config['do_filter'])
 
-            with open(data_config['path'], 'wb') as f:
+            with open(os.path.join(data_config['path'], data_config['data_name']), 'wb') as f:
                 pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
         else:
             if verbose:
                 print(f'Loading data from {data_config["path"]}...')
-            data = load_data(path=data_config['path'], keep_output_type=data_config['output_type'], verbose=verbose, errors='raise')
+            data = load_data(
+                path=data_config['path'],
+                keep_output_type=data_config['output_type'],
+                n_files=data_config.get("n_files", None),  # None means all files
+                verbose=verbose,
+                errors='raise')
 
         if data_config['output_type'] == 'videos':
             X = np.array(data['videos'])
@@ -62,6 +74,8 @@ class TrainerDataHandler:
             raise ValueError(f'Unknown output type: {data_config["output_type"]}')
 
         y = parameter_index_mapping.vectorize(data)
+
+        del data
 
         # Make the correct type for the data
         X = torch.tensor(X, dtype=dtype).to(data_config['device'])
@@ -74,6 +88,8 @@ class TrainerDataHandler:
 
         # Matches pairs of lables and data, so dataset[0] returns tuple of the first entry in X and y
         dataset = TensorDataset(X, y)
+
+        del X, y
 
         return dataset
 

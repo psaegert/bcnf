@@ -299,7 +299,7 @@ def generate_data(
         verbose: bool = False) -> dict[str, list]:
 
     if output_type not in ['videos', 'trajectories', 'parameters']:
-        raise ValueError('output_type must be one of "render", "trajectories", or "parameters"')
+        raise ValueError('output_type must be one of "videos", "trajectories", or "parameters"')
 
     accepted_count = 0
     rejected_count = {

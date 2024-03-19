@@ -1,10 +1,11 @@
 global:
-  parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g_x','g_y','g_z','w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
+  parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g','w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
   dtype: "float32"
 
 data:
   path: "{{BCNF_ROOT}}/data/bcnf-data/fixed_data_render_2s_15FPS/train"
   data_name: "test"
+  n_files: 1
   config_file: "{{BCNF_ROOT}}/configs/data/config.yaml"
   n_samples: 10
   output_type: "videos"
@@ -19,7 +20,7 @@ data:
   break_on_impact: False
   verbose: True
   do_filter: False
-  device: "cuda:0"
+  device: "cpu"
 
 model:
   kwargs:
@@ -31,13 +32,36 @@ model:
     act_norm: True
 
 feature_network:
-  type: null
+  type: CNN
+  kwargs:
+    hidden_channels:
+      - 8
+      - 16
+      - 32
+    kernel_sizes:
+      - 8
+      - 5
+      - 3
+    strides:
+      - 1
+      - 1
+      - 1
+    dropout_prob: 0.5
+    image_input_size:
+      - 90
+      - 160
+    output_size_lin: 1000 # needs to match time_series_network input_size
 
 time_series_network:
-  type: FullyConnected
+  type: LSTM
   kwargs:
-    sizes: [90, 310, 310, 310, 310, 310, 310, 310, 1360]
+    input_size: 1000
+    hidden_size: 212
+    output_size: 1360
+    num_layers: 2
     dropout: 0.111
+    bidirectional: True
+    pooling: "mean"
 
 optimizer:
   type: Adam
@@ -61,7 +85,7 @@ training:
   val_loss_tolerance_mode: "abs"
   learning_rate: 2e-4
   random_state: 2024_03_25
-  batch_size: 256
+  batch_size: 32
   num_workers: 0
   pin_memory: False
   n_epochs: 50_000
