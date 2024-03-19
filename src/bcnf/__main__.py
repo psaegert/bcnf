@@ -1,8 +1,6 @@
 import argparse
 import sys
 
-from bcnf.utils import get_dir
-
 
 def main(argv: str = None) -> None:
     """
@@ -13,27 +11,59 @@ def main(argv: str = None) -> None:
     parser = argparse.ArgumentParser(description='Ballistic Conditional Normalizing Flows (BCNF)')
     subparsers = parser.add_subparsers(dest='command_name', required=True)
 
-    # TODO: Remove demo command
-    demo_parser = subparsers.add_parser("run-trainer")
-    demo_parser.add_argument('--dummy_option', type=str, default='dummy_value', help='Dummy option')
+    train_parser = subparsers.add_parser("train")
+    train_parser.add_argument('-c', '--config', type=str, required=True, help='Path to the configuration file')
+    train_parser.add_argument('-o', '--output-dir', type=str, default=None, help='Path to the directory to store the results')
+    train_parser.add_argument('-f', '--force', action='store_true', help='Overwrite the output directory if it exists')
 
     # Evaluate input
     args = parser.parse_args(argv)
 
     # Execute the command
     match args.command_name:
-        case 'run-trainer':
-            from dynaconf import Dynaconf
+        case 'train':
+            import json
+            import os
 
-            from bcnf.train.trainer import Trainer
+            import torch
 
-            config_file_path = f'{get_dir()}/configs/trainer_config.yaml'
-            config = Dynaconf(settings_files=config_file_path,
-                              lowercase_read=True)
+            from bcnf import CondRealNVP
+            from bcnf.train import Trainer
+            from bcnf.utils import get_dir, load_config
 
-            trainer = Trainer(config=config, project_name='bcnf-test')
+            model_name = os.path.basename(args.config).split('.')[0]
 
-            trainer.training_pipeline()
+            if args.output_dir is None:
+                args.output_dir = get_dir('models', 'bcnf-models', model_name, create=True)
+
+            if os.path.exists(args.output_dir) and len(os.listdir(args.output_dir)) > 0 and not args.force:
+                print(f"Output directory {args.output_dir} already exists and is not empty. Use -f to overwrite.")
+                sys.exit(1)
+
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            print(f"Using device: {device}")
+
+            config = load_config(args.config)
+
+            model = CondRealNVP.from_config(config).to(device)
+
+            print(f'Loaded {model_name} with {model.n_params:,} parameters')
+
+            trainer = Trainer(
+                config={k.lower(): v for k, v in config.to_dict().items()},
+                project_name="bcnf-test",
+                parameter_index_mapping=model.parameter_index_mapping,
+                verbose=True,
+            )
+
+            model = trainer.train(model)
+
+            torch.save(model.state_dict(), os.path.join(args.output_dir, "state_dict.pt"))
+
+            with open(os.path.join(args.output_dir, 'config.json'), 'w') as f:
+                json.dump({'config_path': args.config}, f)
+
+            print(f"Model saved to {args.output_dir}")
 
         case _:
             print('Unknown command: ', args.command)
