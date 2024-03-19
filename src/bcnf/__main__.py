@@ -34,19 +34,20 @@ def main(argv: str = None) -> None:
             model_name = os.path.basename(args.config).split('.')[0]
 
             if args.output_dir is None:
-                args.output_dir = get_dir('models', 'bcnf-models', model_name, create=True)
+                args.output_dir = os.path.join("{{BCNF_ROOT}}", 'models', 'bcnf-models', model_name)
+                if not os.path.exists(get_dir(args.output_dir)):
+                    os.makedirs(get_dir(args.output_dir))
 
-            resolved_config_path = sub_root_path(args.config)
-            resolved_config_path = sub_root_path(args.output_dir)
+            resolved_output_path = sub_root_path(args.output_dir)
 
-            if os.path.exists(resolved_config_path) and len(os.listdir(resolved_config_path)) > 0 and not args.force:
-                print(f"Output directory {resolved_config_path} already exists and is not empty. Use -f to overwrite.")
+            if os.path.exists(resolved_output_path) and len(os.listdir(resolved_output_path)) > 0 and not args.force:
+                print(f"Output directory {resolved_output_path} already exists and is not empty. Use -f to overwrite.")
                 sys.exit(1)
 
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             print(f"Using device: {device}")
 
-            config = load_config(resolved_config_path)
+            config = load_config(args.config)
 
             model = CondRealNVP.from_config(config).to(device)
 
@@ -61,12 +62,12 @@ def main(argv: str = None) -> None:
 
             model = trainer.train(model)
 
-            torch.save(model.state_dict(), os.path.join(resolved_config_path, "state_dict.pt"))
+            torch.save(model.state_dict(), os.path.join(resolved_output_path, "state_dict.pt"))
 
-            with open(os.path.join(resolved_config_path, 'config.json'), 'w') as f:
+            with open(os.path.join(resolved_output_path, 'config.json'), 'w') as f:
                 json.dump({'config_path': args.config}, f)
 
-            print(f"Model saved to {resolved_config_path}")
+            print(f"Model saved to {resolved_output_path}")
 
         case _:
             print('Unknown command: ', args.command)
