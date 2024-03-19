@@ -29,21 +29,24 @@ def main(argv: str = None) -> None:
 
             from bcnf import CondRealNVP
             from bcnf.train import Trainer
-            from bcnf.utils import get_dir, load_config
+            from bcnf.utils import get_dir, load_config, sub_root_path
 
             model_name = os.path.basename(args.config).split('.')[0]
 
             if args.output_dir is None:
                 args.output_dir = get_dir('models', 'bcnf-models', model_name, create=True)
 
-            if os.path.exists(args.output_dir) and len(os.listdir(args.output_dir)) > 0 and not args.force:
-                print(f"Output directory {args.output_dir} already exists and is not empty. Use -f to overwrite.")
+            resolved_config_path = sub_root_path(args.config)
+            resolved_config_path = sub_root_path(args.output_dir)
+
+            if os.path.exists(resolved_config_path) and len(os.listdir(resolved_config_path)) > 0 and not args.force:
+                print(f"Output directory {resolved_config_path} already exists and is not empty. Use -f to overwrite.")
                 sys.exit(1)
 
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             print(f"Using device: {device}")
 
-            config = load_config(args.config)
+            config = load_config(resolved_config_path)
 
             model = CondRealNVP.from_config(config).to(device)
 
@@ -58,12 +61,12 @@ def main(argv: str = None) -> None:
 
             model = trainer.train(model)
 
-            torch.save(model.state_dict(), os.path.join(args.output_dir, "state_dict.pt"))
+            torch.save(model.state_dict(), os.path.join(resolved_config_path, "state_dict.pt"))
 
-            with open(os.path.join(args.output_dir, 'config.json'), 'w') as f:
+            with open(os.path.join(resolved_config_path, 'config.json'), 'w') as f:
                 json.dump({'config_path': args.config}, f)
 
-            print(f"Model saved to {args.output_dir}")
+            print(f"Model saved to {resolved_config_path}")
 
         case _:
             print('Unknown command: ', args.command)

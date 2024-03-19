@@ -1,6 +1,7 @@
 import os
 import pickle
 import re
+import warnings
 from typing import Iterator
 
 import numpy as np
@@ -23,6 +24,12 @@ def load_config(config_file: str) -> dict:
     config : dict
         The configuration dictionary.
     """
+
+    if "{{BCNF_ROOT}}" not in config_file:
+        warnings.warn("The configuration file does not contain the placeholder '{{BCNF_ROOT}}'. This may cause issues when loading the model on a different machine.")
+
+    config_file = sub_root_path(config_file)
+
     if not isinstance(config_file, str):
         raise TypeError("config_file must be a string.")
 
