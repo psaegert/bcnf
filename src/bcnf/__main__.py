@@ -29,16 +29,17 @@ def main(argv: str = None) -> None:
 
             from bcnf import CondRealNVP
             from bcnf.train import Trainer
-            from bcnf.utils import get_dir, load_config, sub_root_path
+            from bcnf.utils import load_config, sub_root_path
 
             model_name = os.path.basename(args.config).split('.')[0]
 
             if args.output_dir is None:
                 args.output_dir = os.path.join("{{BCNF_ROOT}}", 'models', 'bcnf-models', model_name)
-                if not os.path.exists(get_dir(args.output_dir)):
-                    os.makedirs(get_dir(args.output_dir))
 
             resolved_output_path = sub_root_path(args.output_dir)
+
+            if not os.path.exists(resolved_output_path):
+                os.makedirs(resolved_output_path)
 
             if os.path.exists(resolved_output_path) and len(os.listdir(resolved_output_path)) > 0 and not args.force:
                 print(f"Output directory {resolved_output_path} already exists and is not empty. Use -f to overwrite.")
