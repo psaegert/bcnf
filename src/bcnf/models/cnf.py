@@ -291,6 +291,8 @@ class CondRealNVP(ConditionalInvertibleLayer):
         for layer in self.layers:
             layer.to(device)
 
+        self.feature_network.to(device)
+
         return self
 
     def forward(self, x: torch.Tensor, y: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
