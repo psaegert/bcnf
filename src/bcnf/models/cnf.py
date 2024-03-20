@@ -338,11 +338,13 @@ class CondRealNVP(ConditionalInvertibleLayer):
         y_hat_list = []
 
         with torch.no_grad():
+            simulation_index = 0
             for m in tqdm(m_batch_sizes, desc="Sampling", disable=not verbose):
                 if m == 0:
                     # Skip empty batch sizes
                     continue
-                y_hat_list.append(self._sample(m, y=y, outer=True, sigma=sigma).to(output_device))
+                tmp = self._sample(m, y=y[simulation_index:simulation_index + m], outer=outer, sigma=sigma).to(output_device)
+                y_hat_list.append(tmp)
 
         y_hat = torch.cat(y_hat_list, dim=0)
 
