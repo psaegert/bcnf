@@ -5,10 +5,6 @@ repos:
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
       - id: requirements-txt-fixer
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
   - repo: https://github.com/pycqa/flake8
     rev: 7.0.0
     hooks:
