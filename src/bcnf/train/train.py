@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
 from bcnf.errors import TrainingDivergedError
-from bcnf.models import CondRealNVP
+from bcnf.models import CondRealNVP_v2
 
 
 def inn_nll_loss(z: torch.Tensor, log_det_J: torch.Tensor, reduction: str = 'mean') -> torch.Tensor:
@@ -17,7 +17,7 @@ def inn_nll_loss(z: torch.Tensor, log_det_J: torch.Tensor, reduction: str = 'mea
 
 
 def train_CondRealNVP(
-        model: CondRealNVP,
+        model: CondRealNVP_v2,
         optimizer: torch.optim.Optimizer,
         lr_scheduler: torch.optim.lr_scheduler._LRScheduler | None,
         X_train: torch.Tensor,

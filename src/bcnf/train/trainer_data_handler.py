@@ -20,7 +20,8 @@ class TrainerDataHandler:
             config: dict,
             parameter_index_mapping: ParameterIndexMapping,
             dtype: torch_dtype,
-            verbose: bool = False) -> TensorDataset:
+            return_tensor_dataset: bool = True,
+            verbose: bool = False) -> TensorDataset | tuple[torch.Tensor, list[torch.Tensor]]:
         """
         Gts data for training the model
 
@@ -32,6 +33,8 @@ class TrainerDataHandler:
             The mapping for the parameters
         dtype : torch.dtype
             The data type to use for the data
+        return_tensor_dataset : bool
+            Whether to return a TensorDataset or a dictionary
         verbose : bool
             Whether to print verbose output
 
@@ -85,6 +88,9 @@ class TrainerDataHandler:
             print(f'Using {config["data"]["output_type"]} data for training. Shapes:')
             print(f'Conditions: {[c.shape for c in conditions]}')
             print(f'Parameters: {y.shape}')
+
+        if not return_tensor_dataset:
+            return y, conditions
 
         # Matches pairs of lables and data, so dataset[0] returns tuple of the first entry in X and y
         dataset = TensorDataset(y, *conditions)

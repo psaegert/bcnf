@@ -27,7 +27,7 @@ def main(argv: str = None) -> None:
 
             import torch
 
-            from bcnf import CondRealNVP
+            from bcnf import CondRealNVP_v2
             from bcnf.train import Trainer
             from bcnf.utils import load_config, sub_root_path
 
@@ -50,7 +50,7 @@ def main(argv: str = None) -> None:
 
             config = load_config(args.config)
 
-            model = CondRealNVP.from_config(config).to(device)
+            model = CondRealNVP_v2.from_config(config).to(device)
 
             print(f'Loaded {model_name} with {model.n_params:,} parameters')
 

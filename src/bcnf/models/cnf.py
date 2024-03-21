@@ -524,23 +524,37 @@ class CondRealNVP_v2(ConditionalInvertibleLayer):
 
         return z
 
-    # TODO: variable number of conditions
-    def sample(self, n_samples: int, y: torch.Tensor, sigma: float = 1, outer: bool = False, batch_size: int = 100, output_device: str = "cpu", verbose: bool = False) -> torch.Tensor:
-        m_batch_sizes = [batch_size] * (n_samples // batch_size) + [n_samples % batch_size]
-        y_hat_list = []
+    def sample(self, n_samples: int, *conditions: torch.Tensor, sigma: float = 1, outer: bool = False, batch_size: int = 100, sample_batch_size: int = None, output_device: str = "cpu", verbose: bool = False) -> torch.Tensor:
+        if sample_batch_size is None:
+            sample_batch_size = batch_size
+
+        m_batch_sizes = [sample_batch_size] * (n_samples // sample_batch_size) + [n_samples % sample_batch_size]
+
+        y_hat_list: list[list[torch.Tensor]] = []
 
         with torch.no_grad():
-            for m in tqdm(m_batch_sizes, desc="Sampling", disable=not verbose):
-                if m == 0:
-                    # Skip empty batch sizes
-                    continue
-                y_hat_list.append(self._sample(m, y=y, outer=True, sigma=sigma).to(output_device))
+            for b in tqdm(range(0, len(conditions[0]), batch_size), desc="Batch Sampling", disable=not verbose):
+                batch_conditions = [c[b: b + batch_size].to(self.device) for c in conditions]
+                y_hat_list.append([])
+                for m in m_batch_sizes:
+                    if m == 0:
+                        # Skip empty batch sizes
+                        continue
 
-        y_hat = torch.cat(y_hat_list, dim=0)
+                    y_hat = self._sample(
+                        m,
+                        *batch_conditions,
+                        outer=True,
+                        sigma=sigma).to(output_device)
+
+                    y_hat_list[-1].append(y_hat)
+
+        # Create a tensor of shape (n_samples, y.shape[0], y.shape[1])
+        y_hat = torch.cat([torch.cat(y_hat_batch, dim=0) for y_hat_batch in y_hat_list], dim=1)
 
         return y_hat
 
-    def _sample(self, n_samples: int, y: torch.Tensor, sigma: float = 1, outer: bool = False) -> torch.Tensor:
+    def _sample(self, n_samples: int, *conditions: torch.Tensor, sigma: float = 1, outer: bool = False) -> torch.Tensor:
         """
         Sample from the model.
 
@@ -548,7 +562,7 @@ class CondRealNVP_v2(ConditionalInvertibleLayer):
         ----------
         n_samples : int
             The number of samples to generate.
-        y : torch.Tensor
+        *conditions : torch.Tensor
             The conditions used for sampling.
             If 1st order tensor and len(y) == n_conditions, the same conditions are used for all samples.
             If 2nd order tensor, y.shape must be (n_samples, n_conditions), and each row is used as the conditions for each sample.
@@ -564,28 +578,28 @@ class CondRealNVP_v2(ConditionalInvertibleLayer):
             The generated samples.
         """
 
-        y = y.to(self.device)
-
-        if y.ndim == 1:
+        if all(c.ndim == 1 for c in conditions):
             # Generate n_samples for each condition in y
             z = sigma * torch.randn(n_samples, self.size).to(self.device)
-            y = y.repeat(n_samples, 1)
+            repeated_conditions = [c.repeat(n_samples, 1) for c in conditions]
 
             # Apply the inverse network
-            return self.inverse(z, y).view(n_samples, self.size)
-        elif y.ndim > 1:
+            return self.inverse(z, *repeated_conditions).view(n_samples, self.size)
+        elif all(c.ndim > 1 for c in conditions):
             if outer:
-                n_samples_per_condition = y.shape[0]
+                if not len(set(c.shape[0] for c in conditions)) == 1:
+                    raise ValueError(f"All conditions must have the same number of samples (dim = 0). Got {[c.shape for c in conditions]}.")
+                n_samples_per_condition = conditions[0].shape[0]
 
                 # Generate n_samples for each condition in y
                 z = sigma * torch.randn(n_samples * n_samples_per_condition, self.size).to(self.device)
-                y = y.repeat(n_samples, *([1] * (y.ndim - 1)))
+                repeated_conditions = [c.repeat(n_samples, *([1] * (c.ndim - 1))) for c in conditions]
 
                 # Apply the inverse network
-                return self.inverse(z, y).view(n_samples, n_samples_per_condition, self.size)
+                return self.inverse(z, *repeated_conditions).view(n_samples, n_samples_per_condition, self.size)
             else:
                 z = sigma * torch.randn(n_samples, self.size).to(self.device)
 
-                return self.inverse(z, y).view(n_samples, self.size)
+                return self.inverse(z, conditions).view(n_samples, self.size)
         else:
-            raise ValueError(f"y must be a 1st or 2nd order tensor, but got y.shape = {y.shape}")
+            raise ValueError(f"Conditions have invalid shape: {[c.shape for c in conditions]}")
