@@ -1,0 +1,97 @@
+global:
+  parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g','w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
+  dtype: "float32"
+
+data:
+  path: "{{BCNF_ROOT}}/data/bcnf-data/fixed_data_render_2s_15FPS/train"
+  data_name: "test"
+  n_files: 1
+  config_file: "{{BCNF_ROOT}}/configs/data/config.yaml"
+  n_samples: 10
+  output_type: "videos"
+  dt: 0.067
+  T: 2.0
+  ratio:
+    - 16
+    - 9
+  fov_horizontal: 70.0
+  cam1_pos: 0.0
+  num_cams: 2
+  break_on_impact: False
+  verbose: True
+  do_filter: False
+  device: "cpu"
+
+model:
+  kwargs:
+    size: 19
+    nested_sizes: [526, 526, 526, 526, 526]
+    n_conditions: 1360
+    n_blocks: 26
+    dropout: 0.407
+    act_norm: True
+
+feature_network:
+  type: CNN
+  kwargs:
+    hidden_channels:
+      - 8
+      - 16
+      - 32
+    kernel_sizes:
+      - 8
+      - 5
+      - 3
+    strides:
+      - 1
+      - 1
+      - 1
+    dropout_prob: 0.5
+    image_input_size:
+      - 90
+      - 160
+    output_size_lin: 1000 # needs to match time_series_network input_size
+    num_CNN: 1
+
+time_series_network:
+  type: LSTM
+  kwargs:
+    input_size: 1000
+    hidden_size: 212
+    output_size: 1360
+    num_layers: 2
+    dropout: 0.111
+    bidirectional: True
+    pooling: "mean"
+
+optimizer:
+  type: Adam
+  kwargs:
+    lr: 2e-4
+
+lr_scheduler:
+  type: ReduceLROnPlateau
+  kwargs:
+    mode: "min"
+    factor: 0.5
+    patience: 250
+    threshold_mode: "abs"
+    threshold: 1e-1
+
+training:
+  validation_split: 0.2
+  val_loss_window_size: 32
+  val_loss_patience: 60
+  val_loss_tolerance: 1e-1
+  val_loss_tolerance_mode: "abs"
+  learning_rate: 2e-4
+  random_state: 2024_03_25
+  batch_size: 64
+  num_workers: 0
+  pin_memory: False
+  n_epochs: 50_000
+  verbose: True
+  timeout: 20_000
+  wandb:
+    model_log_frequency: 10
+
