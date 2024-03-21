@@ -17,7 +17,7 @@ class TrainerDataHandler:
 
     def get_data_for_training(
             self,
-            data_config: dict,
+            config: dict,
             parameter_index_mapping: ParameterIndexMapping,
             dtype: torch_dtype,
             verbose: bool = False) -> TensorDataset:
@@ -26,8 +26,8 @@ class TrainerDataHandler:
 
         Parameters
         ----------
-        data_config : dict
-            The configuration for the data
+        config : dict
+            The configuration for the run
         parameter_index_mapping : ParameterIndexMapping
             The mapping for the parameters
         dtype : torch.dtype
@@ -40,56 +40,56 @@ class TrainerDataHandler:
         dataset : TensorDataset
             A PyTorch TensorDataset containing the data for training the model
         """
-        if not os.path.exists(data_config['path']) or (os.path.isdir(data_config['path']) and len(os.listdir(data_config['path'])) == 0):
+        if not os.path.exists(config["data"]['path']) or (os.path.isdir(config["data"]['path']) and len(os.listdir(config["data"]['path'])) == 0):
             if verbose:
-                print(f'No data found at {data_config["path"]}. Generating data...')
+                print(f'No data found at {config["data"]["path"]}. Generating data...')
 
             data = generate_data(
-                n=data_config['n_samples'],
-                output_type=data_config['output_type'],
-                dt=data_config['dt'],
-                T=data_config['T'],
-                config_file=data_config['config_file'],
-                verbose=data_config['verbose'],
-                break_on_impact=data_config['break_on_impact'],
-                do_filter=data_config['do_filter'])
+                n=config["data"]['n_samples'],
+                output_type=config["data"]['output_type'],
+                dt=config["data"]['dt'],
+                T=config["data"]['T'],
+                config_file=config["data"]['config_file'],
+                verbose=config["data"]['verbose'],
+                break_on_impact=config["data"]['break_on_impact'],
+                do_filter=config["data"]['do_filter'])
 
-            with open(os.path.join(data_config['path'], data_config['data_name']), 'wb') as f:
+            with open(os.path.join(config["data"]['path'], config["data"]['data_name']), 'wb') as f:
                 pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
         else:
             if verbose:
-                print(f'Loading data from {data_config["path"]}...')
+                print(f'Loading data from {config["data"]["path"]}...')
             data = load_data(
-                path=data_config['path'],
-                keep_output_type=data_config['output_type'],
-                n_files=data_config.get("n_files", None),  # None means all files
+                path=config["data"]['path'],
+                keep_output_type=config["data"]['output_type'],
+                n_files=config["data"].get("n_files", None),  # None means all files
                 verbose=verbose,
                 errors='raise')
 
-        if data_config['output_type'] == 'videos':
-            X = np.array(data['videos'])
-        elif data_config['output_type'] == 'trajectories':
-            X = np.array(data['trajectories'])
-        else:
-            raise ValueError(f'Unknown output type: {data_config["output_type"]}')
-
-        y = parameter_index_mapping.vectorize(data)
+        conditions = []
+        for condition_keys in config["global"]['conditions']:
+            condition_values = []
+            for c in condition_keys:
+                condition_value = np.array(data[c])
+                if condition_value.ndim == 1:
+                    condition_value = condition_value[:, None]
+                condition_values.append(condition_value)
+            condition_values = np.concatenate(condition_values, axis=1)
+            condition = torch.tensor(condition_values, dtype=dtype).to(config["data"]['device'])
+            conditions.append(condition)
+        y = torch.tensor(parameter_index_mapping.vectorize(data), dtype=dtype).to(config["data"]['device'])
 
         del data
 
-        # Make the correct type for the data
-        X = torch.tensor(X, dtype=dtype).to(data_config['device'])
-        y = torch.tensor(y, dtype=dtype).to(data_config['device'])
-
         if verbose:
-            print(f'Using {data_config["output_type"]} data for training. Shapes:')
-            print(f'X shape: {X.shape}')
-            print(f'y shape: {y.shape}')
+            print(f'Using {config["data"]["output_type"]} data for training. Shapes:')
+            print(f'Conditions: {[c.shape for c in conditions]}')
+            print(f'Parameters: {y.shape}')
 
         # Matches pairs of lables and data, so dataset[0] returns tuple of the first entry in X and y
-        dataset = TensorDataset(X, y)
+        dataset = TensorDataset(y, *conditions)
 
-        del X, y
+        del y, conditions
 
         return dataset
 

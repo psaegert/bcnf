@@ -10,7 +10,7 @@ from dynaconf import Dynaconf
 from tqdm import tqdm
 
 
-def load_config(config_file: str) -> dict:
+def load_config(config_file: str, verify: bool = True) -> dict:
     """
     Load a configuration file.
 
@@ -18,6 +18,8 @@ def load_config(config_file: str) -> dict:
     ----------
     config_file : str
         The path to the configuration file.
+    verify : bool, optional
+        Whether to verify the configuration file, by default True.
 
     Returns
     -------
@@ -25,7 +27,7 @@ def load_config(config_file: str) -> dict:
         The configuration dictionary.
     """
 
-    if "{{BCNF_ROOT}}" not in config_file:
+    if "{{BCNF_ROOT}}" not in config_file and verify:
         warnings.warn("The configuration file does not contain the placeholder '{{BCNF_ROOT}}'. This may cause issues when loading the model on a different machine.")
 
     config_file = sub_root_path(config_file)
