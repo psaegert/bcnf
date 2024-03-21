@@ -86,6 +86,8 @@ class TrainerDataHandler:
             print(f'Conditions: {[c.shape for c in conditions]}')
             print(f'Parameters: {y.shape}')
 
+        print(f'Conditions: {[c.shape for c in conditions]}')
+
         # Matches pairs of lables and data, so dataset[0] returns tuple of the first entry in X and y
         dataset = TensorDataset(y, *conditions)
 

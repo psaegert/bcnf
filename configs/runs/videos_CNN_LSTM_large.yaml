@@ -36,6 +36,10 @@ model:
     act_norm: True
 
 feature_networks:
+  - type: ConcatenateCondition
+    kwargs:
+      input_size: null
+      output_size: [90, 160]
   - type: CNN
     kwargs:
       hidden_channels:
@@ -59,6 +63,7 @@ feature_networks:
     kwargs:
       input_size: 1000
       output_size: 1007
+      dim: -1
   - type: LSTM
     kwargs:
       input_size: 1007

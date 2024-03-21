@@ -43,6 +43,10 @@ class FeatureNetworkStack(FeatureNetwork):
         return sum(sum(p.numel() for fn in self.feature_networks for p in fn.parameters()))
 
     def forward(self, *conditions: torch.Tensor,) -> torch.Tensor:
+        print(f'{len(conditions)=}')
+        for condition in conditions:
+            print(condition.shape)
+        print(f'{self.n_distinct_conditions=}')
         if len(conditions) != self.n_distinct_conditions:
             raise ValueError(f'Expected {self.n_distinct_conditions} conditions, but got {len(conditions)}.')
 
@@ -57,7 +61,14 @@ class FeatureNetworkStack(FeatureNetwork):
                     current_features = fn(conditions[consume_condition_index])
                 else:
                     # Concatenate the current features with the next condition
-                    current_features = fn(torch.cat([current_features, conditions[consume_condition_index]], dim=1))
+                    if current_features.ndim > conditions[consume_condition_index].ndim:
+                        # Expand from (batch_size, n_features) to (batch_size, ..., n_features)
+                        new_conditions = conditions[consume_condition_index].unsqueeze(-1).expand(-1, *current_features.shape[1:])
+
+                    print(f'{current_features.shape=}')
+                    print(f'{new_conditions.shape=}')
+
+                    current_features = fn(torch.cat([current_features, new_conditions], dim=fn.dim))
 
                 # "Consume" the condition by incrementing the index of the next condition
                 consume_condition_index += 1
@@ -73,11 +84,12 @@ class FeatureNetworkStack(FeatureNetwork):
 
 
 class ConcatenateCondition(FeatureNetwork):
-    def __init__(self, input_size: int, output_size: int) -> None:
+    def __init__(self, input_size: int, output_size: int, dim: int = -1) -> None:
         super(ConcatenateCondition, self).__init__()
 
         self.input_size = input_size
         self.output_size = output_size
+        self.dim = dim
 
     def to(self, *args: Any, **kwargs: Any) -> 'ConcatenateCondition':
         return super().to(*args, **kwargs)

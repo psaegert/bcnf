@@ -450,14 +450,14 @@ class CondRealNVP_v2(ConditionalInvertibleLayer):
             if isinstance(fn, FeatureNetwork):
                 # If it is not the first feature network, check if the dimensions match
                 if current_dimension is not None:
-                    assert current_dimension == fn.input_size, "The output dimension of the feature network must match the input dimension of the time series network."
+                    assert current_dimension == fn.input_size, f"The output dimension of the feature network must match the input dimension of the time series network. Have {current_dimension} but need {fn.input_size} for next layer."
 
                 # Assign the current dimension to the output size of the feature network
                 current_dimension = fn.output_size
 
         # At the end, check if the output dimension of the last feature network matches the number of conditions for the CNF
         if current_dimension is not None:
-            assert current_dimension == self.n_conditions, "The output dimension of the time series network must match the number of conditions."
+            assert current_dimension == self.n_conditions, f"The output dimension of the time series network must match the number of conditions. Have {current_dimension} but need {self.n_conditions}."
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "CondRealNVP_v2":

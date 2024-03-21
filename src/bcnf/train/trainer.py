@@ -224,8 +224,11 @@ class Trainer():
             train_loss = 0.0
 
             for i, data in enumerate(train_loader):
-                x, *conditions = data
-                loss = self._train_batch(x, *conditions, model=model, optimizer=optimizer, loss_function=loss_function)
+                y, *conditions = data
+                print(f'{y.shape=}')
+                for condition in conditions:
+                    print(f'{condition.shape=}')
+                loss = self._train_batch(y, *conditions, model=model, optimizer=optimizer, loss_function=loss_function)
 
                 if loss > 1e5 or np.isnan(loss):
                     raise TrainingDivergedError(f"Loss exploded to {loss} at epoch {epoch + i / len(train_loader)}")
@@ -241,8 +244,8 @@ class Trainer():
                 val_loss = 0.0
 
                 for data in val_loader:
-                    x, *conditions = data
-                    loss, z_mean, z_std = self._validate_batch(x, *conditions, model=model, loss_function=loss_function)
+                    y, *conditions = data
+                    loss, z_mean, z_std = self._validate_batch(y, *conditions, model=model, loss_function=loss_function)
 
                     val_loss += loss
 
