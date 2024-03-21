@@ -56,6 +56,7 @@ class FeatureNetworkStack(FeatureNetwork):
                     # No current features, use the first provided condition as input to the first feature network
                     current_features = fn(conditions[consume_condition_index])
                 else:
+                    # TODO: Properly handle concatenation of features of different shapes and n dims.
                     current_features = fn(torch.cat([current_features, conditions[consume_condition_index]], dim=fn.dim))
 
                 # "Consume" the condition by incrementing the index of the next condition
