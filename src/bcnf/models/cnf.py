@@ -336,16 +336,20 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
     def sample(self, n_samples: int, y: torch.Tensor, sigma: float = 1, outer: bool = False, batch_size: int = 100, output_device: str = "cpu", verbose: bool = False) -> torch.Tensor:
         m_batch_sizes = [batch_size] * (n_samples // batch_size) + [n_samples % batch_size]
-        y_hat_list = []
+        y_hat_list: list[list[torch.Tensor]] = []
 
         with torch.no_grad():
             for m in tqdm(m_batch_sizes, desc="Sampling", disable=not verbose):
                 if m == 0:
                     # Skip empty batch sizes
                     continue
-                y_hat_list.append(self._sample(m, y=y, outer=True, sigma=sigma).to(output_device))
+                y_hat_list.append([])
+                for y_batch in torch.split(y, m):
+                    y_hat = self._sample(m, y=y_batch, outer=True, sigma=sigma).to(output_device)
+                    y_hat_list[-1].append(y_hat)
 
-        y_hat = torch.cat(y_hat_list, dim=0)
+        # Create a tensor of shape (n_samples, y.shape[0], y.shape[1])
+        y_hat = torch.cat([torch.cat(y_hat_batch, dim=1) for y_hat_batch in y_hat_list], dim=0)
 
         return y_hat
 
