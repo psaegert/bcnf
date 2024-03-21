@@ -18,7 +18,17 @@ def resimulate_trajectory(args: tuple[int, int, float, bool, torch.Tensor, dict[
     )
 
 
-def resimulate(model: CondRealNVP, T: int, dt: float, data_dict: dict[str, list], y_hat: torch.Tensor | None = None, X: torch.Tensor | None = None, m_samples: int = 1000, break_on_impact: bool = False, n_procs: int = None, batch_size: int = 100, verbose: bool = True) -> np.ndarray:
+def resimulate(model: CondRealNVP,
+               T: int,
+               dt: float,
+               data_dict: dict[str, list],
+               y_hat: torch.Tensor | None = None,
+               X: torch.Tensor | None = None,
+               m_samples: int = 1000,
+               break_on_impact: bool = False,
+               n_procs: int = None,
+               batch_size: int = 100,
+               verbose: bool = True) -> np.ndarray:
     if y_hat is None:
         if X is None:
             raise ValueError("Either y_hat or X must be provided")
