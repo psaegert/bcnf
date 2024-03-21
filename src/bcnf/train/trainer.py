@@ -225,9 +225,6 @@ class Trainer():
 
             for i, data in enumerate(train_loader):
                 y, *conditions = data
-                print(f'{y.shape=}')
-                for condition in conditions:
-                    print(f'{condition.shape=}')
                 loss = self._train_batch(y, *conditions, model=model, optimizer=optimizer, loss_function=loss_function)
 
                 if loss > 1e5 or np.isnan(loss):
