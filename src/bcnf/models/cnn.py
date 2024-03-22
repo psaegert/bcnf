@@ -1,8 +1,10 @@
 import torch
 from torch import nn
 
+from bcnf.models.feature_network import FeatureNetwork
 
-class CNN(nn.Module):
+
+class CNN(FeatureNetwork):
     def __init__(self,
                  hidden_channels: list[int],
                  kernel_sizes: list[int],
@@ -12,6 +14,9 @@ class CNN(nn.Module):
                  dropout_prob: float = 0.5,
                  num_CNN: int = 1) -> None:
         super(CNN, self).__init__()
+
+        self.input_size = image_input_size
+        self.output_size = output_size_lin
 
         self.cnn_layers: list[nn.Module] = []
         self.pool = nn.MaxPool2d(2, 2)

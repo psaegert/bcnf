@@ -1,5 +1,8 @@
 global:
+  cnf_version: 2
   parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g','w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
+  conditions :  # Consumed one by one in the ConcatenateContition layer of the feature network stack
+  - ["trajectories"]
   dtype: "float32"
 
 data:
@@ -29,19 +32,20 @@ model:
     dropout: 0.383
     act_norm: True
 
-feature_network:
-  type: null
-
-time_series_network:
-  type: Transformer
-  kwargs:
-    input_size: 3
-    trf_size: 128
-    n_heads: 8
-    ff_size: 128
-    n_blocks: 8
-    output_size: 80
-    dropout: 0.1
+feature_networks:
+  - type: ConcatenateCondition
+    kwargs:
+      input_size: null
+      output_size: 3
+  - type: Transformer
+    kwargs:
+      input_size: 3
+      trf_size: 128
+      n_heads: 8
+      ff_size: 128
+      n_blocks: 8
+      output_size: 80
+      dropout: 0.1
 
 optimizer:
   type: Adam

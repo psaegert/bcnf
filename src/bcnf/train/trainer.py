@@ -4,14 +4,14 @@ from typing import Any, Callable
 
 import numpy as np
 import torch
-import wandb
 from sklearn.model_selection import KFold
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
+import wandb
 from bcnf.errors import TrainingDivergedError
 from bcnf.factories import OptimizerFactory, SchedulerFactory
-from bcnf.models.cnf import ConditionalInvertibleLayer
+from bcnf.models.cnf import CondRealNVP_v2
 from bcnf.train.trainer_data_handler import TrainerDataHandler
 from bcnf.train.trainer_loss_handler import TrainerParameterHistoryHandler
 from bcnf.train.utils import get_data_type
@@ -39,14 +39,14 @@ class Trainer():
             print(f'Using dtype: {self.dtype}')
 
         self.data = self.data_handler.get_data_for_training(
-            data_config=self.config["data"],
+            config=self.config,
             dtype=self.dtype,
             parameter_index_mapping=self.parameter_index_mapping,
             verbose=self.verbose)
 
         self.loss_function = inn_nll_loss
 
-    def train(self, model: ConditionalInvertibleLayer) -> ConditionalInvertibleLayer:
+    def train(self, model: CondRealNVP_v2) -> CondRealNVP_v2:
         """
         Train the model on the given dataset once
 
@@ -107,7 +107,7 @@ class Trainer():
 
             return model
 
-    def kfold_crossvalidation(self, model: torch.nn.Module) -> list[dict]:
+    def kfold_crossvalidation(self, model: CondRealNVP_v2) -> list[dict]:
         # Train the model with k-fold cross-validation
         kf = KFold(
             n_splits=self.config["training"]["n_folds"],
@@ -173,7 +173,7 @@ class Trainer():
             loss_function: torch.nn.Module,
             optimizer: torch.optim.Optimizer,
             scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau,
-            **kwargs: Any) -> ConditionalInvertibleLayer:
+            **kwargs: Any) -> CondRealNVP_v2:
         """
         Train the model on given dataloaders for training and validation
 
@@ -223,8 +223,9 @@ class Trainer():
             model.train()
             train_loss = 0.0
 
-            for i, (x, y) in enumerate(train_loader):
-                loss = self._train_batch(x, y, model, optimizer, loss_function)
+            for i, data in enumerate(train_loader):
+                y, *conditions = data
+                loss = self._train_batch(y, *conditions, model=model, optimizer=optimizer, loss_function=loss_function)
 
                 if loss > 1e5 or np.isnan(loss):
                     raise TrainingDivergedError(f"Loss exploded to {loss} at epoch {epoch + i / len(train_loader)}")
@@ -239,12 +240,9 @@ class Trainer():
             with torch.no_grad():
                 val_loss = 0.0
 
-                for x, y in val_loader:
-                    loss, z_mean, z_std = self._validate_batch(
-                        x,
-                        y,
-                        model,
-                        loss_function)
+                for data in val_loader:
+                    y, *conditions = data
+                    loss, z_mean, z_std = self._validate_batch(y, *conditions, model=model, loss_function=loss_function)
 
                     val_loss += loss
 
@@ -291,19 +289,19 @@ class Trainer():
 
     def _train_batch(
             self,
-            x: torch.Tensor,
             y: torch.Tensor,
-            model: ConditionalInvertibleLayer,
+            *conditions: torch.Tensor,
+            model: CondRealNVP_v2,
             optimizer: torch.optim.Optimizer,
             loss_function: Callable) -> float:
-
-        x = x.to(model.device)
-        y = y.to(model.device)
 
         optimizer.zero_grad()
 
         # Forward pass ➡
-        z = model.forward(y, x, log_det_J=True)
+        z = model.forward(
+            y.to(model.device),
+            *[c.to(model.device) for c in conditions],
+            log_det_J=True)
         loss = loss_function(z, model.log_det_J)
 
         # Backward pass ⬅
@@ -318,16 +316,16 @@ class Trainer():
 
     def _validate_batch(
             self,
-            x: torch.Tensor,
             y: torch.Tensor,
-            model: ConditionalInvertibleLayer,
+            *conditions: torch.Tensor,
+            model: CondRealNVP_v2,
             loss_function: Callable) -> tuple[float, torch.Tensor, torch.Tensor]:
-        # Move the data to the correct device
-        x = x.to(model.device)
-        y = y.to(model.device)
 
         # Run the model
-        z = model.forward(y, x, log_det_J=True)
+        z = model.forward(
+            y.to(model.device),
+            *[c.to(model.device) for c in conditions],
+            log_det_J=True)
 
         # Calculate the loss
         loss = loss_function(z, model.log_det_J)
