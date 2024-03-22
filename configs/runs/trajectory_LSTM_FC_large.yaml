@@ -3,6 +3,7 @@ global:
   parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g','w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
   conditions :  # Consumed one by one in the ConcatenateContition layer of the feature network stack
   - ["trajectories"]
+  - ["cam_radian", "cam_radius", "cam_angles", "cam_heights"]
   dtype: "float32"
 
 data:
@@ -26,10 +27,10 @@ data:
 model:
   kwargs:
     size: 19
-    nested_sizes: [16, 16, 16, 16, 16, 16, 16]
-    n_conditions: 80
-    n_blocks: 32
-    dropout: 0.383
+    nested_sizes: [526, 526, 526, 526, 526]
+    n_conditions: 107
+    n_blocks: 26
+    dropout: 0.407
     act_norm: True
 
 feature_networks:
@@ -40,12 +41,17 @@ feature_networks:
   - type: LSTM
     kwargs:
       input_size: 3
-      hidden_size: 12
-      output_size: 80
+      hidden_size: 16
+      output_size: 100
       num_layers: 2
-      dropout: 0.111
+      dropout: 0.5
       bidirectional: True
       pooling: "mean"
+  - type: ConcatenateCondition
+    kwargs:
+      input_size: 100
+      output_size: 107
+      dim: -1
 
 optimizer:
   type: Adam
