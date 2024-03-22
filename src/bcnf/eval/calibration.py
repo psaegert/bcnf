@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from bcnf.models.cnf import CondRealNVP
+from bcnf.models.cnf import CondRealNVP_v2
 
 
 def CDF(sorted_arrray_indices: torch.Tensor, t: np.ndarray, M: int) -> np.ndarray:
@@ -18,24 +18,26 @@ def brownian_confidence_interval(t: np.ndarray) -> np.ndarray:
 
 
 def compute_y_hat_ranks(
-        model: CondRealNVP,
-        X: torch.Tensor,
+        model: CondRealNVP_v2,
         y: torch.Tensor,
+        *conditions: torch.Tensor,
         M_samples: int = 10_000,
         batch_size: int = 100,
+        sample_batch_size: int | None = None,
         device: str = 'cpu',
         output_device: str = 'cpu',
         verbose: bool = True) -> torch.Tensor:
+    if sample_batch_size is None:
+        sample_batch_size = batch_size
+
     model.to(device).eval()
 
-    X = X.to(device)
-    y = y.to(device)
-
     y_hat = model.sample(
-        n_samples=M_samples,
-        y=X,
+        M_samples,
+        *conditions,
         outer=True,
         batch_size=batch_size,
+        sample_batch_size=sample_batch_size,
         output_device=output_device,
         verbose=verbose)
 

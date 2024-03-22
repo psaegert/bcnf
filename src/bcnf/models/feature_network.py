@@ -7,6 +7,9 @@ from torch import nn
 
 
 class FeatureNetwork(nn.Module):
+    input_size: int
+    output_size: int
+
     def __init__(self) -> None:
         super(FeatureNetwork, self).__init__()
 
@@ -21,13 +24,75 @@ class FeatureNetwork(nn.Module):
         return super().to(*args, **kwargs)
 
 
+class FeatureNetworkStack(FeatureNetwork):
+    def __init__(self, feature_networks: list[FeatureNetwork | nn.Module | None] | None = None) -> None:
+        super(FeatureNetwork, self).__init__()
+
+        if feature_networks is None or all(fn is None for fn in feature_networks):
+            raise ValueError('Feature network stack must contain at least one feature network.')
+        else:
+            self.feature_networks = nn.Sequential(*[fn for fn in feature_networks if fn is not None])
+
+        self.n_distinct_conditions = sum(1 for fn in self.feature_networks if isinstance(fn, ConcatenateCondition))
+
+        self.input_size = self.feature_networks[0].input_size
+        self.output_size = self.feature_networks[-1].output_size
+
+    @property
+    def n_params(self) -> int:
+        return sum(sum(p.numel() for fn in self.feature_networks for p in fn.parameters()))
+
+    def forward(self, *conditions: torch.Tensor,) -> torch.Tensor:
+        if len(conditions) != self.n_distinct_conditions:
+            raise ValueError(f'Expected {self.n_distinct_conditions} conditions, but got {len(conditions)}.')
+
+        # Apply the feature network to y
+        consume_condition_index = 0
+        current_features: torch.Tensor | None = None
+        for i, fn in enumerate(self.feature_networks):
+            if isinstance(fn, ConcatenateCondition):
+                # Consume one condition and concatenate it with the current features
+                if current_features is None:
+                    # No current features, use the first provided condition as input to the first feature network
+                    current_features = fn(conditions[consume_condition_index])
+                else:
+                    # TODO: Properly handle concatenation of features of different shapes and n dims.
+                    current_features = fn(torch.cat([current_features, conditions[consume_condition_index]], dim=fn.dim))
+
+                # "Consume" the condition by incrementing the index of the next condition
+                consume_condition_index += 1
+            else:
+                # Apply the feature network to the current features
+                current_features = fn(current_features)
+
+        return current_features
+
+    def to(self, *args: Any, **kwargs: Any) -> 'FeatureNetwork':
+        self.feature_networks = self.feature_networks.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
+
+
+class ConcatenateCondition(FeatureNetwork):
+    def __init__(self, input_size: int, output_size: int, dim: int = -1) -> None:
+        super(ConcatenateCondition, self).__init__()
+
+        self.input_size = input_size
+        self.output_size = output_size
+        self.dim = dim
+
+    def to(self, *args: Any, **kwargs: Any) -> 'ConcatenateCondition':
+        return super().to(*args, **kwargs)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x
+
+
 class FullyConnectedFeatureNetwork(FeatureNetwork):
-    def __init__(self,
-                 sizes: list[int],
-                 activation: Type[nn.Module] = nn.GELU,
-                 dropout: float = 0.0,
-                 batch_norm: bool = False) -> None:
+    def __init__(self, sizes: list[int], activation: Type[nn.Module] = nn.GELU, dropout: float = 0.0, batch_norm: bool = False) -> None:
         super(FullyConnectedFeatureNetwork, self).__init__()
+
+        self.input_size = sizes[0]
+        self.output_size = sizes[-1]
 
         self.nn = nn.Sequential()
 
@@ -57,6 +122,9 @@ class FullyConnectedFeatureNetwork(FeatureNetwork):
 class LSTMFeatureNetwork(FeatureNetwork):
     def __init__(self, input_size: int, hidden_size: int, output_size: int, num_layers: int, dropout: float = 0.0, bidirectional: bool = False, pooling: str = 'mean') -> None:
         super(LSTMFeatureNetwork, self).__init__()
+
+        self.input_size = input_size
+        self.output_size = output_size
 
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, dropout=dropout, bidirectional=bidirectional)
         self.linear = nn.Linear(hidden_size * (2 if bidirectional else 1), output_size)
@@ -166,9 +234,13 @@ class TransformerBlock(nn.Module):
         return x
 
 
-class Transformer(nn.Module):
+class Transformer(FeatureNetwork):
     def __init__(self, input_size: int, trf_size: int, n_heads: int, ff_size: int, n_blocks: int, output_size: int, dropout: float = 0.1) -> None:
         super(Transformer, self).__init__()
+
+        self.input_size = input_size
+        self.output_size = output_size
+
         self.features = nn.Linear(input_size, trf_size)
         self.layers = nn.ModuleList([TransformerBlock(trf_size, n_heads, ff_size, dropout) for _ in range(n_blocks)])
         self.output = nn.Linear(trf_size, output_size)
