@@ -12,15 +12,18 @@ class CNN(FeatureNetwork):
                  output_size_lin: int,
                  image_input_size: tuple[int, int] = (90, 160),
                  dropout_prob: float = 0.5,
-                 num_CNN: int = 1) -> None:
+                 num_CNN: int = 1,
+                 verbose: bool = False) -> None:
         super(CNN, self).__init__()
 
         self.input_size = image_input_size
         self.output_size = output_size_lin
 
-        self.cnn_layers: list[nn.Module] = []
+        self.cnn_layers = nn.ModuleList()  # Use nn.ModuleList to store layers
         self.pool = nn.MaxPool2d(2, 2)
         self.example_camera_input = torch.randn(1, 1, image_input_size[0], image_input_size[1])  # batch size, channels, height, width
+        if verbose:
+            print(f'Example camera input size: {self.example_camera_input.shape}')
         self.output_size_lin = output_size_lin
         self.num_CNN = num_CNN
 
@@ -35,6 +38,8 @@ class CNN(FeatureNetwork):
             layers.append(self.pool)
 
             output_size = self._calc_output_shape(self.example_camera_input, layers)
+            if verbose:
+                print(f'Output size after first layer: {output_size}')
 
             for i in range(len(hidden_channels) - 1):
                 padding_x = ((strides[i] - 1) * output_size[2] - strides[i] + kernel_sizes[i]) // 2  # type: ignore
@@ -46,14 +51,19 @@ class CNN(FeatureNetwork):
                 layers.append(self.pool)
 
                 output_size = self._calc_output_shape(self.example_camera_input, layers)
+                if verbose:
+                    print(f'Output size after layer {i + 1}: {output_size}')
 
             layers.append(nn.Flatten())
             self.cnn_layers.append(nn.Sequential(*layers))
 
         self.final_output_size = output_size[1] * output_size[2] * output_size[3]  # type: ignore
+        if verbose:
+            print(f'Final output size: {self.final_output_size * 2}')
         self.final_layer = nn.Linear(self.final_output_size * 2, self.output_size_lin)
 
-        print(self.cnn_layers)
+        if verbose:
+            print(self.cnn_layers)
 
     def _calc_output_shape(self,
                            input: torch.tensor,
@@ -102,6 +112,5 @@ class CNN(FeatureNetwork):
         return y
 
     def to(self, device: torch.device) -> "CNN":
-        for i in range(self.num_CNN):
-            self.cnn_layers[i] = self.cnn_layers[i].to(device)
+        self.cnn_layers.to(device)
         return super().to(device)

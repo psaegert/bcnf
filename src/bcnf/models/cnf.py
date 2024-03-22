@@ -505,7 +505,13 @@ class CondRealNVP_v2(ConditionalInvertibleLayer):
 
         return z
 
-    def sample(self, n_samples: int, *conditions: torch.Tensor, sigma: float = 1, outer: bool = False, batch_size: int = 100, sample_batch_size: int = None, output_device: str = "cpu", verbose: bool = False) -> torch.Tensor:
+    def sample(self,
+               n_samples: int,
+               *conditions: torch.Tensor,
+               sigma: float = 1,
+               batch_size: int = 100,
+               sample_batch_size: int = None,
+               output_device: str = "cpu", verbose: bool = False) -> torch.Tensor:
         if sample_batch_size is None:
             sample_batch_size = batch_size
 
