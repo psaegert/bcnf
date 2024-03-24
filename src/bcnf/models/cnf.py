@@ -600,6 +600,6 @@ class CondRealNVP_v2(ConditionalInvertibleLayer):
             else:
                 z = sigma * torch.randn(n_samples, self.size).to(self.device)
 
-                return self.inverse(z, conditions).view(n_samples, self.size)
+                return self.inverse(z, *conditions).view(n_samples, self.size)
         else:
             raise ValueError(f"Conditions have invalid shape: {[c.shape for c in conditions]}")
