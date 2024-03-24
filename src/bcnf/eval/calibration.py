@@ -35,6 +35,7 @@ def compute_y_hat_ranks(
     y_hat = model.sample(
         M_samples,
         *conditions,
+        outer=True,
         batch_size=batch_size,
         sample_batch_size=sample_batch_size,
         output_device=output_device,

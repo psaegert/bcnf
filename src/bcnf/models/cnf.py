@@ -294,8 +294,6 @@ class CondRealNVP(ConditionalInvertibleLayer):
         for layer in self.layers:
             layer.to(device)
 
-        self.feature_network.to(device)
-
         return self
 
     def forward(self, x: torch.Tensor, y: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:  # type: ignore
@@ -336,7 +334,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
         return z
 
-    def sample(self, n_samples: int, y: torch.Tensor, sigma: float = 1, batch_size: int = 100, output_device: str = "cpu", verbose: bool = False) -> torch.Tensor:
+    def sample(self, n_samples: int, y: torch.Tensor, sigma: float = 1, outer: bool = False, batch_size: int = 100, output_device: str = "cpu", verbose: bool = False) -> torch.Tensor:
         m_batch_sizes = [batch_size] * (n_samples // batch_size) + [n_samples % batch_size]
         y_hat_list: list[list[torch.Tensor]] = []
 
@@ -347,7 +345,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
                     continue
                 y_hat_list.append([])
                 for y_batch in torch.split(y, m):
-                    y_hat = self._sample(m, y=y_batch, sigma=sigma).to(output_device)
+                    y_hat = self._sample(m, y=y_batch, outer=outer, sigma=sigma).to(output_device)
                     y_hat_list[-1].append(y_hat)
 
         # Create a tensor of shape (n_samples, y.shape[0], y.shape[1])
@@ -355,7 +353,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
         return y_hat
 
-    def _sample(self, n_samples: int, y: torch.Tensor, sigma: float = 1) -> torch.Tensor:
+    def _sample(self, n_samples: int, y: torch.Tensor, sigma: float = 1, outer: bool = False) -> torch.Tensor:
         """
         Sample from the model.
 
@@ -369,6 +367,9 @@ class CondRealNVP(ConditionalInvertibleLayer):
             If 2nd order tensor, y.shape must be (n_samples, n_conditions), and each row is used as the conditions for each sample.
         sigma : float
             The standard deviation of the normal distribution to sample from.
+        outer : bool
+            If True, the conditions are broadcasted to match the shape of the samples.
+            If False, the conditions are matched to the shape of the samples.
 
         Returns
         -------
@@ -378,11 +379,29 @@ class CondRealNVP(ConditionalInvertibleLayer):
 
         y = y.to(self.device)
 
-        z = sigma * torch.randn(n_samples, self.size).to(self.device)
-        y = y.unsqueeze(0)  # add an extra dimension at the beginning
-        y = y.repeat(n_samples, *([1] * (y.ndim - 1)))  # copy the tensor along the new dimension
+        if y.ndim == 1:
+            # Generate n_samples for each condition in y
+            z = sigma * torch.randn(n_samples, self.size).to(self.device)
+            y = y.repeat(n_samples, 1)
 
-        return self.inverse(z, y).view(n_samples, self.size)
+            # Apply the inverse network
+            return self.inverse(z, y).view(n_samples, self.size)
+        elif y.ndim > 1:
+            if outer:
+                n_samples_per_condition = y.shape[0]
+
+                # Generate n_samples for each condition in y
+                z = sigma * torch.randn(n_samples * n_samples_per_condition, self.size).to(self.device)
+                y = y.repeat(n_samples, *([1] * (y.ndim - 1)))
+
+                # Apply the inverse network
+                return self.inverse(z, y).view(n_samples, n_samples_per_condition, self.size)
+            else:
+                z = sigma * torch.randn(n_samples, self.size).to(self.device)
+
+                return self.inverse(z, y).view(n_samples, self.size)
+        else:
+            raise ValueError(f"y must be a 1st or 2nd order tensor, but got y.shape = {y.shape}")
 
 
 class CondRealNVP_v2(ConditionalInvertibleLayer):
@@ -505,13 +524,7 @@ class CondRealNVP_v2(ConditionalInvertibleLayer):
 
         return z
 
-    def sample(self,
-               n_samples: int,
-               *conditions: torch.Tensor,
-               sigma: float = 1,
-               batch_size: int = 100,
-               sample_batch_size: int = None,
-               output_device: str = "cpu", verbose: bool = False) -> torch.Tensor:
+    def sample(self, n_samples: int, *conditions: torch.Tensor, sigma: float = 1, outer: bool = False, batch_size: int = 100, sample_batch_size: int = None, output_device: str = "cpu", verbose: bool = False) -> torch.Tensor:
         if sample_batch_size is None:
             sample_batch_size = batch_size
 
@@ -531,7 +544,7 @@ class CondRealNVP_v2(ConditionalInvertibleLayer):
                     y_hat = self._sample(
                         m,
                         *batch_conditions,
-                        outer=True,
+                        outer=outer,
                         sigma=sigma).to(output_device)
 
                     y_hat_list[-1].append(y_hat)

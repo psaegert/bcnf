@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from bcnf.models.cnf import CondRealNVP
+from bcnf.models.cnf import CondRealNVP_v2
 from bcnf.simulation.physics import physics_ODE_simulation
 from bcnf.utils import ParameterIndexMapping
 
@@ -18,25 +18,23 @@ def resimulate_trajectory(args: tuple[int, int, float, bool, torch.Tensor, dict[
     )
 
 
-def resimulate(model: CondRealNVP,
-               T: int,
-               dt: float,
-               data_dict: dict[str, list],
-               conditions: torch.Tensor,
-               y_hat: torch.Tensor | None = None,
-               m_samples: int = 1000,
-               break_on_impact: bool = False,
-               n_procs: int = None,
-               batch_size: int = 100,
-               verbose: bool = True) -> np.ndarray:
+def resimulate(
+        model: CondRealNVP_v2,
+        T: int,
+        dt: float,
+        data_dict: dict[str, list],
+        y_hat: torch.Tensor | None = None,
+        *conditions: torch.Tensor,
+        m_samples: int = 1000,
+        break_on_impact: bool = False,
+        n_procs: int = None,
+        batch_size: int = 100,
+        verbose: bool = True) -> np.ndarray:
+
     if y_hat is None:
-        if conditions is None:
-            raise ValueError("Either y_hat or X must be provided")
-        # e.g. torch.Size([1000, 2, 30, 90, 160]) is X shape
-        y_hat = model.sample(m_samples,
-                             *conditions,
-                             batch_size=batch_size,
-                             verbose=verbose).cpu().numpy()  # (M, N, D)
+        if len(conditions) != model.feature_network_stack.n_distinct_conditions:
+            raise ValueError(f"Expected {model.feature_network_stack.n_distinct_conditions} conditions, got {len(conditions)}")
+        y_hat = model.sample(m_samples, *conditions, batch_size=batch_size, verbose=verbose).cpu().numpy()  # (M, N, D)
 
     N = y_hat.shape[1]  # Number of simulations
     M = y_hat.shape[0]  # Number of parameter samples
@@ -46,7 +44,7 @@ def resimulate(model: CondRealNVP,
 
     X_resimulation_list: list[list] = []
 
-    pbar = tqdm(total=N, desc="Resimulating trajectories", disable=not verbose)
+    pbar = tqdm(total=N, desc=f"Resimulating trajectories with {n_procs} processes", disable=not verbose)
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=n_procs) as executor:
         for i in range(N):
