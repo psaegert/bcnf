@@ -10,6 +10,7 @@ class CNN(FeatureNetwork):
                  kernel_sizes: list[int],
                  strides: list[int],
                  output_size_lin: int,
+                 output_size: int,
                  image_input_size: tuple[int, int] = (90, 160),
                  dropout_prob: float = 0.5,
                  num_CNN: int = 1,
@@ -17,7 +18,7 @@ class CNN(FeatureNetwork):
         super(CNN, self).__init__()
 
         self.input_size = image_input_size
-        self.output_size = output_size_lin
+        self.output_size = output_size
 
         self.cnn_layers = nn.ModuleList()  # Use nn.ModuleList to store layers
         self.pool = nn.MaxPool2d(2, 2)
@@ -37,7 +38,7 @@ class CNN(FeatureNetwork):
             layers.append(nn.Dropout(dropout_prob))  # Dropout after activation
             layers.append(self.pool)
 
-            output_size = self._calc_output_shape(self.example_camera_input, layers)
+            output_size = self._calc_output_shape(self.example_camera_input, layers)  # type: ignore
             if verbose:
                 print(f'Output size after first layer: {output_size}')
 
@@ -50,7 +51,7 @@ class CNN(FeatureNetwork):
                 layers.append(nn.Dropout(dropout_prob))  # Dropout after activation
                 layers.append(self.pool)
 
-                output_size = self._calc_output_shape(self.example_camera_input, layers)
+                output_size = self._calc_output_shape(self.example_camera_input, layers)  # type: ignore
                 if verbose:
                     print(f'Output size after layer {i + 1}: {output_size}')
 
