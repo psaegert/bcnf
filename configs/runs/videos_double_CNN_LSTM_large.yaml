@@ -60,6 +60,7 @@ feature_networks:
         - 160
       output_size_lin: 1000
       num_CNN: 1
+      output_size: 1000
       verbose: True
   - type: LSTM
     kwargs:
