@@ -34,7 +34,7 @@ def resimulate(
     if y_hat is None:
         if len(conditions) != model.feature_network_stack.n_distinct_conditions:
             raise ValueError(f"Expected {model.feature_network_stack.n_distinct_conditions} conditions, got {len(conditions)}")
-        y_hat = model.sample(m_samples, *conditions, batch_size=batch_size, verbose=verbose).cpu().numpy()  # (M, N, D)
+        y_hat = model.sample(m_samples, *conditions, batch_size=batch_size, verbose=verbose, outer=True).cpu().numpy()  # (M, N, D)
 
     N = y_hat.shape[1]  # Number of simulations
     M = y_hat.shape[0]  # Number of parameter samples

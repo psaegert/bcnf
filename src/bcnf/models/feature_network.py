@@ -116,7 +116,7 @@ class FullyConnectedFeatureNetwork(FeatureNetwork):
         return super().to(*args, **kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x = x.view(x.size(0), -1)
+        x = x.view(x.size(0), -1)
         return self.nn.forward(x)
 
 
