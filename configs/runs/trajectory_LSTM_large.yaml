@@ -40,7 +40,7 @@ feature_networks:
   - type: LSTM
     kwargs:
       input_size: 3
-      hidden_size: 212
+      hidden_size: 140
       output_size: 1360
       num_layers: 2
       dropout: 0.111

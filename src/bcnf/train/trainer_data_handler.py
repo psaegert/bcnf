@@ -21,6 +21,7 @@ class TrainerDataHandler:
             parameter_index_mapping: ParameterIndexMapping,
             dtype: torch_dtype,
             return_tensor_dataset: bool = True,
+            errors: str = "raise",
             verbose: bool = False) -> TensorDataset | tuple[torch.Tensor, list[torch.Tensor]]:
         """
         Gts data for training the model
@@ -35,6 +36,8 @@ class TrainerDataHandler:
             The data type to use for the data
         return_tensor_dataset : bool
             Whether to return a TensorDataset or a dictionary
+        errors : str
+            How to handle errors when loading the data
         verbose : bool
             Whether to print verbose output
 
@@ -67,7 +70,7 @@ class TrainerDataHandler:
                 keep_output_type=config["data"]['output_type'],
                 n_files=config["data"].get("n_files", None),  # None means all files
                 verbose=verbose,
-                errors='raise')
+                errors=errors)
 
         conditions = []
         for condition_keys in config["global"]['conditions']:

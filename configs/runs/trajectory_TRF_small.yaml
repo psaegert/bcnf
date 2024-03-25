@@ -40,10 +40,10 @@ feature_networks:
   - type: Transformer
     kwargs:
       input_size: 3
-      trf_size: 128
-      n_heads: 8
-      ff_size: 128
-      n_blocks: 8
+      trf_size: 16
+      n_heads: 4
+      ff_size: 8
+      n_blocks: 4
       output_size: 80
       dropout: 0.1
 

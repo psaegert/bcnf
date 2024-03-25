@@ -345,7 +345,7 @@ class CondRealNVP(ConditionalInvertibleLayer):
                     continue
                 y_hat_list.append([])
                 for y_batch in torch.split(y, m):
-                    y_hat = self._sample(m, y=y_batch, outer=True, sigma=sigma).to(output_device)
+                    y_hat = self._sample(m, y=y_batch, outer=outer, sigma=sigma).to(output_device)
                     y_hat_list[-1].append(y_hat)
 
         # Create a tensor of shape (n_samples, y.shape[0], y.shape[1])
@@ -544,7 +544,7 @@ class CondRealNVP_v2(ConditionalInvertibleLayer):
                     y_hat = self._sample(
                         m,
                         *batch_conditions,
-                        outer=True,
+                        outer=outer,
                         sigma=sigma).to(output_device)
 
                     y_hat_list[-1].append(y_hat)
@@ -600,6 +600,6 @@ class CondRealNVP_v2(ConditionalInvertibleLayer):
             else:
                 z = sigma * torch.randn(n_samples, self.size).to(self.device)
 
-                return self.inverse(z, conditions).view(n_samples, self.size)
+                return self.inverse(z, *conditions).view(n_samples, self.size)
         else:
             raise ValueError(f"Conditions have invalid shape: {[c.shape for c in conditions]}")

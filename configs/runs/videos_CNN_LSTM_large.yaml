@@ -59,6 +59,7 @@ feature_networks:
         - 90
         - 160
       output_size_lin: 1000
+      output_size: 1000
   - type: LSTM
     kwargs:
       input_size: 1000

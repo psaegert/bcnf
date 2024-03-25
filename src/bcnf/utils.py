@@ -219,6 +219,18 @@ def load_data(path: str, keep_output_type: str | None = None, n_files: int | Non
             print('Loading data from file...')
         with open(path, 'rb') as file:
             data = pickle.load(file)
+
+        # Rename the keys to their canonical names
+        for key, equivalent in equivalent_keys.items():
+            for e in equivalent:
+                if e in data:
+                    print(f'Found key "{e}" in file "{file}". Renaming to "{key}".')
+                    data[key] = data.pop(e)
+
+        # Add the data to the dictionary
+        for key, value in data.items():
+            if key not in data:
+                data[key] = [value]
     else:
         data = {}
 
@@ -238,6 +250,7 @@ def load_data(path: str, keep_output_type: str | None = None, n_files: int | Non
                 for key, equivalent in equivalent_keys.items():
                     for e in equivalent:
                         if e in file_data:
+                            print(f'Found key "{e}" in file "{file}". Renaming to "{key}".')
                             file_data[key] = file_data.pop(e)
 
                 # Add the data to the dictionary

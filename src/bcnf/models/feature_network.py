@@ -95,6 +95,7 @@ class FullyConnectedFeatureNetwork(FeatureNetwork):
         self.output_size = sizes[-1]
 
         self.nn = nn.Sequential()
+        self.output_size_lin = sizes[-1]
 
         if len(sizes) < 2:
             # No transformations from one layer to another, use identity (0 layers)
