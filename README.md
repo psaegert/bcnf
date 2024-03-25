@@ -15,12 +15,48 @@
 
 
 # Introduction
+Conditional Normlizing Flows (CNF) [[1]](https://arxiv.org/abs/1605.08803) [[2]](https://arxiv.org/abs/1410.8516) have achieved major advancements at solving inverse problems [[3]](https://arxiv.org/abs/1808.04730) and performing Amortized Simulation Based Inference [[4]](https://arxiv.org/abs/2312.05440) [[3]](https://arxiv.org/abs/1808.04730) [[5]](https://arxiv.org/abs/2003.06281). Motivated by the idea of exploring physical systems with relevant practical applications, we apply various variations of the CNF architecture with LSTM, Transformer-based and Convolutional feature networks on a family of simulated and real physical systems with ballistic properties, and evaluate our method with regards to log likelihood, calibration and resimulation. Our experiments show that various simulation parameters can be identified from 3D trajectory data with good precision and fair accuracy, but barely at all from rendered or real-world video data.
+
+# Results
+
+| Model                         | Train      | Validation | Test    |
+|-------------------------------|------------|------------|---------|
+| `trajectory_FC_large`         | **-51.52** | **-51.51** | **-53.19** |
+| `trajectory_LSTM_large`      | -45.82     | -34.70     | -35.32  |
+| `trajectory_TRF_large`       | -41.21     | -28.87     | -29.12  |
+| `trajectory_FC_small`         | -45.71     | -50.69     | -50.80  |
+| `trajectory_LSTM_small`      | -42.77     | -45.83     | -46.41  |
+| `trajectory_TRF_small`       | -41.71     | -45.06     | -46.11  |
+
+**Table**: **Negative Log Likelihood of the Training, Validation, and Test Set in the Trajectory Setting.** The trajectory data is input into a fully connected (FC) Long Short-Term Memory (LSTM) or Transformer (TRF) feature network.
+
+---
+
+![Metrics during Training of the Trajectory Models](results/logging/train_trajectory_comparison.png)
+
+**Figure**: **Metrics during Training of the Trajectory Models.** We show the training and validation loss (left), statistics of the mean (middle) and standard deviation (right) of the validation code distribution in each dimension during training of our method with a small (solid lines) and large (colored dashed lines) CNF. Every model except the two using a fully connected feature network (red solid line, blue dashed line) exhibit overfitting behavior. Ideally, all means in z space converge to 0 and standard deviations to 1 with no variation across the dimensions (black dashed lines). All metrics are logged with the W&B logging provided by Nikita.
+
+---
+
+![Resimulated Trajectories with Parameters Sampled by `trajectory_LSTM_large`](results/trajectory_LSTM_large/figures/resimulation.png)
+
+**Figure**: **Resimulated Trajectories with Parameters Sampled by `trajectory_LSTM_large`**. We show the ground-truth (red curve) and 500 resimulated (feint black curves) for six arbitrarily chosen instances from our test set. The point of impact is calculated by the (first) intersection of the simulated trajectory with the ground ($z$ = 0, green area). Units in Meters.
+
+---
+
+![Predicted Point of Impact Distribution for `trajectory_LSTM_large`](results/trajectory_LSTM_large/figures/resimulation_impact_heatmap.png)
+
+**Figure**: **Predicted Point of Impact Distribution for `trajectory_LSTM_large`**. Many impact distributions (heatmap) match well with the ground truth impact (center point of the white circle). Some predictions significantly deviate from the ground truth impact (Trajectory #5, #10). Units in Meters.
+
+
+For more results, please see the [results](results) folder.
+
 
 # Requirements
 
 ## Hardware
-- 8GB RAM
-- GPU (optional)
+- 32GB RAM
+- CUDA-enabled GPU with 16GB VRAM (recommended)
 
 ## Software
 - Python 3.11
@@ -60,16 +96,10 @@ pip install -e .
 
 # Usage
 
-**CLI**
+For pretrained models and data, please refer to our [bcnf-models](https://huggingface.co/BCNF/bcnf-models) and [bcnf-data-public](https://huggingface.co/datasets/BCNF/bcnf-data-public) repositories on Hugging Face.
 
-```sh
-bcnf train -c configs/runs/trajectory_LSTM_large.yaml
-```
-
-
-**Python API**
-
-Load a model from a configuration file:
+## Load a model from a configuration file:L
+[calibration.ipynb](./notebooks/calibration.ipynb)
 ```python
 import os
 import json
@@ -88,7 +118,15 @@ cnf.load_state_dict(torch.load(os.path.join(get_dir('models', 'bcnf-models', MOD
 cnf.eval()
 ```
 
-Train your own model:
+## Train your own model:
+
+From the command line:
+```sh
+bcnf train -c configs/runs/trajectory_LSTM_large.yaml
+```
+
+In your own code:\
+[train.ipynb](./notebooks/train.ipynb)
 ```python
 from bcnf.utils import get_dir, load_config, sub_root_path
 from bcnf.train import Trainer
@@ -122,11 +160,6 @@ with open(os.path.join(get_dir('models', 'bcnf-models', MODEL_NAME, create=True)
     json.dump({'config_path': config_path_pattern}, f)
 ```
 
-
-# Train the model
-model = trainer.train(model)
-
-
 # Development
 
 ## Setup
@@ -146,8 +179,6 @@ pytest tests --cov src
 ```
 
 # Citation
-If you use our work for your research, please cite it using the following
-
 ```bibtex
 @software{bcnf2024,
     author = {Christian Kleiber and Paul Saegert and Nikita Tatsch},
