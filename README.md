@@ -8,14 +8,14 @@
 
 <div align="center">
 
-[![pytest](https://github.com/MrWhatZitToYaa/IGNNS-final-project/actions/workflows/pytest.yml/badge.svg)](https://github.com/MrWhatZitToYaa/IGNNS-final-project/actions/workflows/pytest.yml)
-[![quality checks](https://github.com/MrWhatZitToYaa/IGNNS-final-project/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/MrWhatZitToYaa/IGNNS-final-project/actions/workflows/pre-commit.yml)
+[![pytest](https://github.com/psaegert/bcnf/actions/workflows/pytest.yml/badge.svg)](https://github.com/psaegert/bcnf/actions/workflows/pytest.yml)
+[![quality checks](https://github.com/psaegert/bcnf/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/psaegert/bcnf/actions/workflows/pre-commit.yml)
 
 </div>
 
 
 # Introduction
-Conditional Normlizing Flows (CNF) [[1]](https://arxiv.org/abs/1605.08803) [[2]](https://arxiv.org/abs/1410.8516) have achieved major advancements at solving inverse problems [[3]](https://arxiv.org/abs/1808.04730) and performing Amortized Simulation Based Inference [[4]](https://arxiv.org/abs/2312.05440) [[3]](https://arxiv.org/abs/1808.04730) [[5]](https://arxiv.org/abs/2003.06281). Motivated by the idea of exploring physical systems with relevant practical applications, we apply various variations of the CNF architecture with LSTM, Transformer-based and Convolutional feature networks on a family of simulated and real physical systems with ballistic properties, and evaluate our method with regards to log likelihood, calibration and resimulation. Our experiments show that various simulation parameters can be identified from 3D trajectory data with good precision and fair accuracy, but barely at all from rendered or real-world video data.
+Conditional Normalizing Flows (CNF) [[1]](https://arxiv.org/abs/1605.08803) [[2]](https://arxiv.org/abs/1410.8516) have achieved major advancements at solving inverse problems [[3]](https://arxiv.org/abs/1808.04730) and performing Amortized Simulation Based Inference [[4]](https://arxiv.org/abs/2312.05440) [[3]](https://arxiv.org/abs/1808.04730) [[5]](https://arxiv.org/abs/2003.06281). Motivated by the idea of exploring physical systems with relevant practical applications, we apply various variations of the CNF architecture with LSTM, Transformer-based and Convolutional feature networks on a family of simulated and real physical systems with ballistic properties, and evaluate our method with regards to log likelihood, calibration and resimulation. Our experiments show that various simulation parameters can be identified from 3D trajectory data with good precision and fair accuracy, but barely at all from rendered or real-world video data.
 
 # Results
 
@@ -40,7 +40,7 @@ Conditional Normlizing Flows (CNF) [[1]](https://arxiv.org/abs/1605.08803) [[2]]
 
 ![Resimulated Trajectories with Parameters Sampled by `trajectory_LSTM_large`](results/trajectory_LSTM_large/figures/resimulation.png)
 
-**Figure**: **Resimulated Trajectories with Parameters Sampled by `trajectory_LSTM_large`**. We show the ground-truth (red curve) and 500 resimulated (feint black curves) for six arbitrarily chosen instances from our test set. The point of impact is calculated by the (first) intersection of the simulated trajectory with the ground ($z$ = 0, green area). Units in Meters.
+**Figure**: **Resimulated Trajectories with Parameters Sampled by `trajectory_LSTM_large`**. We show the ground-truth (red curve) and 500 resimulated (faint black curves) for six arbitrarily chosen instances from our test set. The point of impact is calculated by the (first) intersection of the simulated trajectory with the ground ($z$ = 0, green area). Units in Meters.
 
 ---
 
@@ -98,7 +98,7 @@ pip install -e .
 
 For pretrained models and data, please refer to our [bcnf-models](https://huggingface.co/BCNF/bcnf-models) and [bcnf-data-public](https://huggingface.co/datasets/BCNF/bcnf-data-public) repositories on Hugging Face.
 
-## Load a model from a configuration file:L
+## Load a model from a configuration file:
 [calibration.ipynb](./notebooks/calibration.ipynb)
 ```python
 import os

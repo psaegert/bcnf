@@ -28,9 +28,10 @@ model:
     size: 19
     nested_sizes: [526, 526, 526, 526, 526]
     n_conditions: 1360
-    n_blocks: 26
+    n_blocks: 13 # 26
     dropout: 0.407
     act_norm: True
+    two_way: True
     random_state: 2024_03_25
 
 feature_networks:
@@ -38,9 +39,13 @@ feature_networks:
     kwargs:
       input_size: null
       output_size: 3
+  - type: FrExpFeatureNetwork
+    kwargs:
+      input_size: 3  # -> output_size: 3 * 3 = 9
+      separate_sign: True
   - type: Transformer
     kwargs:
-      input_size: 3
+      input_size: 9
       trf_size: 128
       n_heads: 8
       ff_size: 128

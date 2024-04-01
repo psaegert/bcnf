@@ -70,7 +70,7 @@ class Trainer():
             optimizer=optimizer,
             scheduler_kwargs=self.config['lr_scheduler']['kwargs'])
 
-        with wandb.init(project=self.project_name, config=self.config, entity="balisticcnf"):  # type: ignore
+        with wandb.init(project=self.project_name, config=self.config, entity="bcnf"):  # type: ignore
 
             # access all HPs through wandb.config, so logging matches execution!
             self.config = wandb.config  # type: ignore
@@ -117,7 +117,7 @@ class Trainer():
         indices = list(range(len(self.data)))
         for i, (train_index, val_index) in enumerate(kf.split(indices)):
 
-            with wandb.init(project=self.project_name, config=self.config, entity="balisticcnf"):  # type: ignore
+            with wandb.init(project=self.project_name, config=self.config, entity="bcnf"):  # type: ignore
 
                 # access all HPs through wandb.config, so logging matches execution!
                 self.config = wandb.config  # type: ignore

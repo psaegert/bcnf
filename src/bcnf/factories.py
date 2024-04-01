@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from bcnf.models.cnn import CNN
-from bcnf.models.feature_network import ConcatenateCondition, FeatureNetwork, FullyConnectedFeatureNetwork, LSTMFeatureNetwork, Transformer
+from bcnf.models.feature_network import ConcatenateCondition, FrExpFeatureNetwork, FeatureNetwork, FullyConnectedFeatureNetwork, LSTMFeatureNetwork, Transformer
 
 
 class SchedulerFactory():
@@ -41,6 +41,8 @@ class FeatureNetworkFactory():
                 return Transformer(**network_kwargs)
             case "ConcatenateCondition":
                 return ConcatenateCondition(**network_kwargs)
+            case "FrExpFeatureNetwork":
+                return FrExpFeatureNetwork(**network_kwargs)
             case None:
                 return nn.Identity()
             case _:

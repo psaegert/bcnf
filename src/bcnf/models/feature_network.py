@@ -87,6 +87,29 @@ class ConcatenateCondition(FeatureNetwork):
         return x
 
 
+class FrExpFeatureNetwork(FeatureNetwork):
+    def __init__(self, input_size: int, separate_sign: bool = False) -> None:
+        super(FrExpFeatureNetwork, self).__init__()
+
+        self.separate_sign = separate_sign
+
+        self.input_size = input_size
+        self.output_size = input_size * (2 + int(separate_sign))
+
+    def to(self, *args: Any, **kwargs: Any) -> 'FrExpFeatureNetwork':
+        return super().to(*args, **kwargs)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        mantissa, exponent = torch.frexp(x)
+
+        if self.separate_sign:
+            sign = torch.sign(mantissa)
+            mantissa = torch.abs(mantissa)
+            return torch.cat([sign, mantissa, exponent], dim=-1)
+        else:
+            return torch.cat([mantissa, exponent], dim=-1)
+
+
 class FullyConnectedFeatureNetwork(FeatureNetwork):
     def __init__(self, sizes: list[int], activation: Type[nn.Module] = nn.GELU, dropout: float = 0.0, batch_norm: bool = False) -> None:
         super(FullyConnectedFeatureNetwork, self).__init__()
@@ -236,15 +259,16 @@ class TransformerBlock(nn.Module):
 
 
 class Transformer(FeatureNetwork):
-    def __init__(self, input_size: int, trf_size: int, n_heads: int, ff_size: int, n_blocks: int, output_size: int, dropout: float = 0.1) -> None:
+    def __init__(self, input_size: int, trf_size: int, n_heads: int, ff_size: int, n_blocks: int, output_size: int, dropout: float = 0.5, trf_dropout: float = 0.1) -> None:
         super(Transformer, self).__init__()
 
         self.input_size = input_size
         self.output_size = output_size
 
         self.features = nn.Linear(input_size, trf_size)
-        self.layers = nn.ModuleList([TransformerBlock(trf_size, n_heads, ff_size, dropout) for _ in range(n_blocks)])
+        self.layers = nn.ModuleList([TransformerBlock(trf_size, n_heads, ff_size, trf_dropout) for _ in range(n_blocks)])
         self.output = nn.Linear(trf_size, output_size)
+        self.dropout = nn.Dropout(dropout)
 
     def to(self, *args: Any, **kwargs: Any) -> 'Transformer':
         self.features = self.features.to(*args, **kwargs)
@@ -254,9 +278,12 @@ class Transformer(FeatureNetwork):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.features(x)
+        x = self.dropout(x)
 
         for layer in self.layers:
             x = layer(x)
+
+        x = self.dropout(x)
 
         # Use the first token's output as the final output
         x = self.output(x[:, 0, :])

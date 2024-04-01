@@ -38,9 +38,13 @@ feature_networks:
     kwargs:
       input_size: null
       output_size: 3
+  - type: FrExpFeatureNetwork
+    kwargs:
+      input_size: 3  # -> output_size: 3 * 3 = 9
+      separate_sign: True
   - type: Transformer
     kwargs:
-      input_size: 3
+      input_size: 9
       trf_size: 128
       n_heads: 8
       ff_size: 128

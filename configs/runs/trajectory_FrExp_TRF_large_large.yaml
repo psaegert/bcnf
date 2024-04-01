@@ -31,20 +31,22 @@ model:
     n_blocks: 26
     dropout: 0.407
     act_norm: True
-    random_state: 2024_03_25
 
 feature_networks:
   - type: ConcatenateCondition
     kwargs:
       input_size: null
       output_size: 3
+  - type: FrExpFeatureNetwork
+    kwargs:
+      input_size: 3  # -> output_size: 3 * 3 = 9
   - type: Transformer
     kwargs:
-      input_size: 3
-      trf_size: 128
-      n_heads: 8
-      ff_size: 128
-      n_blocks: 8
+      input_size: 9
+      trf_size: 256
+      n_heads: 16
+      ff_size: 256
+      n_blocks: 16
       output_size: 1360
       trf_dropout: 0.1
       dropout: 0.5
