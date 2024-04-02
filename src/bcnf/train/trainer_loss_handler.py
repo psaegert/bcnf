@@ -50,7 +50,7 @@ class TrainerParameterHistoryHandler():
 
         self.val_loss_rolling_avg = sum(self.val_losses) / len(self.val_losses)
 
-    def update_scheduler_parameters(self) -> None:
+    def update_best_loss(self) -> None:
         # Check if the validation loss did not decrease in the last `val_loss_patience` epochs
         if self.val_loss_patience is not None and self.val_loss_rolling_avg is not None:
             if self.val_loss_tolerance_mode == "rel":

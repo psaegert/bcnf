@@ -13,6 +13,8 @@ from .feature_network import (
     ConcatenateCondition,
     FrExpFeatureNetwork,
     LSTMFeatureNetwork,
+    VerboseLSTM,
+    DualDomainLSTM,
     MultiHeadAttention,
     TransformerBlock,
     Transformer,

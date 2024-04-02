@@ -5,7 +5,9 @@ import torch.nn as nn
 import importlib
 
 from bcnf.models.cnn import CNN
-from bcnf.models.feature_network import ConcatenateCondition, FrExpFeatureNetwork, FeatureNetwork, FullyConnectedFeatureNetwork, LSTMFeatureNetwork, Transformer
+from bcnf.models.feature_network import DualDomainLSTM, ConcatenateCondition, FrExpFeatureNetwork, FeatureNetwork, FullyConnectedFeatureNetwork, LSTMFeatureNetwork, Transformer
+
+from collections.abc import Iterator
 
 
 class SchedulerFactory():
@@ -20,10 +22,10 @@ class SchedulerFactory():
 
 class OptimizerFactory():
     @staticmethod
-    def get_optimizer(optimizer: str, model: torch.nn.Module, optimizer_kwargs: Any) -> torch.optim.Optimizer:
+    def get_optimizer(optimizer: str, parameters: Iterator[nn.Parameter], optimizer_kwargs: Any) -> torch.optim.Optimizer:
         match optimizer:
             case "Adam":
-                return torch.optim.Adam(model.parameters(), **optimizer_kwargs)
+                return torch.optim.Adam(parameters, **optimizer_kwargs)
             case _:
                 raise NotImplementedError(f"Optimizer {optimizer} not implemented")
 
@@ -44,6 +46,8 @@ class FeatureNetworkFactory():
                 return ConcatenateCondition(**network_kwargs)
             case "FrExpFeatureNetwork":
                 return FrExpFeatureNetwork(**network_kwargs)
+            case "DualDomainLSTM":
+                return DualDomainLSTM(**network_kwargs)
             case None:
                 return nn.Identity()
             case _:

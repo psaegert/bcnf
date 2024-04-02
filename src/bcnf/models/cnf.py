@@ -464,9 +464,13 @@ class CondRealNVP_v2(ConditionalInvertibleLayer):
         self.feature_network_stack.to(device)
         return self
 
-    def forward(self, y: torch.Tensor, *conditions: torch.Tensor, log_det_J: bool = False, return_features: bool = False) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, y: torch.Tensor, *conditions: torch.Tensor, log_det_J: bool = False, return_features: bool = False, deterministic_features: bool = False) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         if self.n_conditions > 0:
-            condition = self.feature_network_stack(*conditions)
+            if deterministic_features:
+                self.feature_network_stack.eval()
+                condition = self.feature_network_stack(*conditions).detach()
+            else:
+                condition = self.feature_network_stack(*conditions)
 
         # Apply the network
         if log_det_J:

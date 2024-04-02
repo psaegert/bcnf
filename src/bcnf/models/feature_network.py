@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
+import warnings
 
 
 class FeatureNetwork(nn.Module):
@@ -122,6 +123,7 @@ class FullyConnectedFeatureNetwork(FeatureNetwork):
 
         if len(sizes) < 2:
             # No transformations from one layer to another, use identity (0 layers)
+            warnings.warn('No hidden layers in the fully connected network. Using identity function.')
             self.nn.append(nn.Identity())
         else:
             for i in range(len(sizes) - 2):
@@ -150,7 +152,7 @@ class LSTMFeatureNetwork(FeatureNetwork):
         self.input_size = input_size
         self.output_size = output_size
 
-        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, dropout=dropout, bidirectional=bidirectional)
+        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, dropout=dropout, bidirectional=bidirectional, batch_first=True)
         self.linear = nn.Linear(hidden_size * (2 if bidirectional else 1), output_size)
 
         if pooling not in ['mean', 'max']:
@@ -164,7 +166,7 @@ class LSTMFeatureNetwork(FeatureNetwork):
         return super().to(*args, **kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x.permute(1, 0, 2)  # Turn (batch_size, seq_len, n_features) into (seq_len, batch_size, n_features) for compatibility with LSTMs
+        # x = x.permute(1, 0, 2)  # Turn (batch_size, seq_len, n_features) into (seq_len, batch_size, n_features) for compatibility with LSTMs
         x, _ = self.lstm.forward(x)
         x = self.linear.forward(x)
 
@@ -289,3 +291,94 @@ class Transformer(FeatureNetwork):
         x = self.output(x[:, 0, :])
 
         return x
+
+
+class VerboseLSTM(nn.Module):
+    def __init__(self, input_size: int, hidden_size: int, num_layers: int, dropout: float = 0.0, bidirectional: bool = False) -> None:
+        super(VerboseLSTM, self).__init__()
+
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.dropout = dropout
+        self.bidirectional = bidirectional
+
+        self.lstm = nn.ModuleList()
+
+        for i in range(num_layers - 1):
+            self.lstm.append(nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=1, bidirectional=bidirectional, batch_first=True))
+            input_size = hidden_size * (2 if bidirectional else 1)
+
+            if dropout > 0:
+                self.lstm.append(nn.Dropout(p=dropout))
+
+        self.lstm.append(nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=1, bidirectional=bidirectional, batch_first=True))
+
+    def to(self, *args: Any, **kwargs: Any) -> 'VerboseLSTM':
+        self.lstm = self.lstm.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        h = torch.empty(self.num_layers, x.size(0), x.size(1), self.hidden_size * (2 if self.bidirectional else 1), device=x.device)
+
+        lstm_index = 0
+        for layer in self.lstm:
+            if isinstance(layer, nn.LSTM):
+                x, _ = layer(x)
+                h[lstm_index] = x
+                lstm_index += 1
+            else:
+                x = layer(x)
+
+        return x, h.permute(1, 0, 2, 3)
+
+
+class DualDomainLSTM(FeatureNetwork):
+    def __init__(
+            self,
+            input_size: int,
+            hidden_size: int,
+            fc_sizes: list[int],
+            fc_dropout: float = 0.0,
+            num_layers: int = 1,
+            dropout: float = 0.0,
+            bidirectional: bool = False,
+            pooling: str = 'mean') -> None:
+        super(DualDomainLSTM, self).__init__()
+
+        self.input_size = input_size
+        self.output_size = fc_sizes[-1]
+        self.pooling = pooling
+
+        self.lstm = VerboseLSTM(input_size, hidden_size, num_layers, dropout, bidirectional)
+        self.frequency_lstm = VerboseLSTM(input_size * 2, hidden_size, num_layers, dropout, bidirectional)
+
+        fc_sizes = [hidden_size * (2 if bidirectional else 1) * 2] + fc_sizes
+
+        self.fc = FullyConnectedFeatureNetwork(sizes=fc_sizes, dropout=fc_dropout)
+
+    def to(self, *args: Any, **kwargs: Any) -> 'VerboseLSTM':
+        self.lstm = self.lstm.to(*args, **kwargs)
+        self.frequency_lstm = self.frequency_lstm.to(*args, **kwargs)
+        self.fc = self.fc.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_lstm, _ = self.lstm.forward(x)
+
+        x_frequencies = torch.fft.rfft(x, dim=1)
+
+        x_frequencies_lstm, _ = self.frequency_lstm.forward(torch.cat([x_frequencies.real, x_frequencies.imag], dim=-1))
+
+        if self.pooling == 'mean':
+            x_lstm_pooled = x_lstm.mean(dim=1)
+            x_frequencies_lstm_pooled = x_frequencies_lstm.mean(dim=1)
+        elif self.pooling == 'max':
+            x_lstm_pooled = x_lstm.max(dim=1).values
+            x_frequencies_lstm_pooled = x_frequencies_lstm.max(dim=1).values
+        else:
+            raise ValueError(f"Invalid pooling method: {self.pooling}")
+
+        x_cat = torch.cat([x_lstm_pooled, x_frequencies_lstm_pooled], dim=1)
+
+        return self.fc.forward(x_cat)

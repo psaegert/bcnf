@@ -1,0 +1,86 @@
+global:
+  cnf_version: 2
+  parameter_selection: ['x0_x','x0_y','x0_z','v0_x','v0_y','v0_z','g','w_x','w_y','w_z','b','m','a_x','a_y','a_z','r','A','Cd','rho']
+  conditions :  # Consumed one by one in the ConcatenateContition layer of the feature network stack
+  - ["trajectories"]
+  dtype: "float32"
+  hybrid_weight: 1
+
+data:
+  path: "{{BCNF_ROOT}}/data/bcnf-data-public/train-trajectories"
+  config_file: "{{BCNF_ROOT}}/configs/data/config.yaml"
+  n_samples: 5000
+  output_type: "trajectories"
+  dt: 0.067
+  T: 2.0
+  ratio:
+    - 16
+    - 9
+  fov_horizontal: 70.0
+  cam1_pos: 0.0
+  num_cams: 2
+  break_on_impact: False
+  verbose: True
+  do_filter: False
+  device: "cuda:0"
+
+model:
+  kwargs:
+    size: 19
+    nested_sizes: [32, 32, 32, 32, 32]
+    n_conditions: 32
+    n_blocks: 32
+    dropout: 0.5
+    act_norm: True
+    layer: "Linear"
+    activation: "GELU"
+    random_state: 2024_03_25
+    hybrid: True
+
+feature_networks:
+  - type: ConcatenateCondition
+    kwargs:
+      input_size: null
+      output_size: 3
+  - type: DualDomainLSTM
+    kwargs:
+      input_size: 3
+      hidden_size: 16
+      num_layers: 1
+      dropout: 0.5
+      bidirectional: True
+      fc_sizes: [32]
+      fc_dropout: 0.5
+      pooling: "mean"
+
+optimizer:
+  type: Adam
+  kwargs:
+    lr: 2e-4
+
+lr_scheduler:
+  type: ReduceLROnPlateau
+  kwargs:
+    mode: "min"
+    factor: 0.5
+    patience: 250
+    threshold_mode: "abs"
+    threshold: 1e-1
+
+training:
+  validation_split: 0.2
+  val_loss_window_size: 32
+  val_loss_patience: 500
+  val_loss_tolerance: 1e-1
+  val_loss_tolerance_mode: "abs"
+  learning_rate: 2e-4
+  random_state: 2024_03_25
+  batch_size: 256
+  num_workers: 0
+  pin_memory: False
+  n_epochs: 50_000
+  verbose: True
+  timeout: 10_000
+  wandb:
+    model_log_frequency: 10
+
