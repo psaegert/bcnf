@@ -6,7 +6,7 @@ global:
   dtype: "float32"
 
 data:
-  path: "{{BCNF_ROOT}}/data/bcnf-data-public/train"
+  path: "{{BCNF_ROOT}}/data/bcnf-data-public/train-trajectories"
   config_file: "{{BCNF_ROOT}}/configs/data/config.yaml"
   n_samples: 5000
   output_type: "trajectories"
@@ -26,11 +26,12 @@ data:
 model:
   kwargs:
     size: 19
-    nested_sizes: [526, 526, 526, 526, 526]
-    n_conditions: 1360
-    n_blocks: 26
+    nested_sizes: [128, 128, 128, 128, 128]
+    n_conditions: 1024
+    n_blocks: 12
     dropout: 0.407
     act_norm: True
+    two_way: True
     layer: "Linear"
     activation: "GELU"
     random_state: 2024_03_25
@@ -40,11 +41,15 @@ feature_networks:
     kwargs:
       input_size: null
       output_size: 3
+  - type: FrExpFeatureNetwork
+    kwargs:
+      input_size: 3  # -> output_size: 3 * 3 = 9
+      separate_sign: True
   - type: LSTM
     kwargs:
-      input_size: 3
-      hidden_size: 140
-      output_size: 1360
+      input_size: 9
+      hidden_size: 128
+      output_size: 1024
       num_layers: 2
       dropout: 0.111
       bidirectional: True

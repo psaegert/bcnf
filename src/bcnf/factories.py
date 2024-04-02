@@ -2,6 +2,7 @@ from typing import Any
 
 import torch
 import torch.nn as nn
+import importlib
 
 from bcnf.models.cnn import CNN
 from bcnf.models.feature_network import ConcatenateCondition, FrExpFeatureNetwork, FeatureNetwork, FullyConnectedFeatureNetwork, LSTMFeatureNetwork, Transformer
@@ -47,3 +48,18 @@ class FeatureNetworkFactory():
                 return nn.Identity()
             case _:
                 raise NotImplementedError(f"Feature network {network} not implemented")
+
+
+class LayerFactory():
+    @staticmethod
+    def get_layer(layer: str, *args: Any, **kwargs: Any) -> nn.Module:
+        # Try to import the layer from torch.nn
+        if hasattr(nn, layer):
+            return getattr(nn, layer)(*args, **kwargs)
+
+        # Try to import the layer from bcnf.models.layers
+        bcnf_models = importlib.import_module("bcnf.models")
+        if hasattr(bcnf_models, layer):
+            return getattr(bcnf_models, layer)(*args, **kwargs)
+
+        raise NotImplementedError(f"Layer {layer} not implemented")

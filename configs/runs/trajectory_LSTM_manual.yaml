@@ -26,10 +26,10 @@ data:
 model:
   kwargs:
     size: 19
-    nested_sizes: [526, 526, 526, 526, 526]
-    n_conditions: 1360
-    n_blocks: 26
-    dropout: 0.407
+    n_conditions: 256
+    nested_sizes: [256, 256, 256, 256]
+    n_blocks: 32
+    dropout: 0.4
     act_norm: True
     layer: "Linear"
     activation: "GELU"
@@ -43,10 +43,10 @@ feature_networks:
   - type: LSTM
     kwargs:
       input_size: 3
-      hidden_size: 140
-      output_size: 1360
-      num_layers: 2
-      dropout: 0.111
+      hidden_size: 256
+      output_size: 256
+      num_layers: 16
+      dropout: 0.1
       bidirectional: True
       pooling: "mean"
 

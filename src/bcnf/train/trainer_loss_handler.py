@@ -28,52 +28,20 @@ class TrainerParameterHistoryHandler():
         self.val_loss_patience = val_loss_patience
         self.val_loss_tolerance = val_loss_tolerance
 
-        self.parameter_history: dict[str, list] = {
-            "train_loss": [],
-            "val_loss": [],
-            "lr": [],
-            "distance_to_last_best_val_loss": [],
-            "time": [],
-            "z_mean_mean": [],
-            "z_mean_std": [],
-            "z_std_mean": [],
-            "z_std_std": [],
-        }
+        self.parameter_history: dict[str, list] = {}
         self.epoch = 0
         self.fold = fold
 
     def update_epoch(self, epoch: int) -> None:
-        """
-        Updates the epoch counter
-
-        Parameters
-        ----------
-        epoch : int
-            The epoch to be set
-
-        Returns
-        -------
-        None
-        """
         self.epoch = epoch
 
-    def update_parameter_history(self, parameter: str, value: Any) -> None:
+    def log(self, parameter: str, value: Any) -> None:
+        if parameter not in self.parameter_history:
+            self.parameter_history[parameter] = [(self.epoch + 1, value)]
         self.parameter_history[parameter].append((self.epoch + 1, value))
         wandb.log({"epoch": self.epoch + 1, f"{parameter}_fold_{self.fold}": value}, step=self.epoch)  # type: ignore
 
     def update_rolling_validation_loss(self, val_loss: float) -> None:
-        """
-        Updates the rolling average of the validation loss
-
-        Parameters
-        ----------
-        val_loss : float
-            The validation loss to be added to the rolling average
-
-        Returns
-        -------
-        None
-        """
         if len(self.val_losses) < self.val_loss_window_size:
             self.val_losses.append(val_loss)
         else:
@@ -83,13 +51,6 @@ class TrainerParameterHistoryHandler():
         self.val_loss_rolling_avg = sum(self.val_losses) / len(self.val_losses)
 
     def update_scheduler_parameters(self) -> None:
-        """
-        Updates the scheduler parameters
-
-        Returns
-        -------
-        None
-        """
         # Check if the validation loss did not decrease in the last `val_loss_patience` epochs
         if self.val_loss_patience is not None and self.val_loss_rolling_avg is not None:
             if self.val_loss_tolerance_mode == "rel":

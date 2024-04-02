@@ -27,7 +27,7 @@ model:
   kwargs:
     size: 19
     nested_sizes: [526, 526, 526, 526, 526]
-    n_conditions: 1360
+    n_conditions: 128
     n_blocks: 26
     dropout: 0.407
     act_norm: True
@@ -44,7 +44,7 @@ feature_networks:
     kwargs:
       input_size: 3
       hidden_size: 140
-      output_size: 1360
+      output_size: 128
       num_layers: 2
       dropout: 0.111
       bidirectional: True

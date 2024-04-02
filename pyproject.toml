@@ -59,6 +59,7 @@ exclude = [
 	".env",
 	"images",
 ]
+per-file-ignores = "__init__.py:F401"
 
 
 [tool.mypy]

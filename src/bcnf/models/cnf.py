@@ -1,12 +1,12 @@
 from abc import abstractmethod
-from typing import Any, Type
+from typing import Any
 
 import numpy as np
 import torch
 import torch.nn as nn
 from tqdm import tqdm
 
-from bcnf.factories import FeatureNetworkFactory
+from bcnf.factories import FeatureNetworkFactory, LayerFactory
 from bcnf.models.feature_network import FeatureNetwork, FeatureNetworkStack
 from bcnf.utils import ParameterIndexMapping
 
@@ -47,10 +47,21 @@ class ConditionalInvertibleLayer(nn.Module):
 
 
 class ConditionalNestedNeuralNetwork(nn.Module):
-    def __init__(self, sizes: list[int], n_conditions: int, activation: Type[nn.Module] = nn.GELU, dropout: float = 0.0, device: str = "cpu") -> None:
+    def __init__(
+            self,
+            sizes: list[int],
+            n_conditions: int,
+            n_output_parameters: int,
+            layer: str = "Linear",
+            layer_kwargs: dict[str, Any] | None = None,
+            activation: str = "GELU",
+            activation_kwargs: dict[str, Any] | None = None,
+            dropout: float = 0.0,
+            device: str = "cpu") -> None:
         super(ConditionalNestedNeuralNetwork, self).__init__()
 
         self.n_conditions = n_conditions
+        self.n_output_parameters = n_output_parameters
         self.device = device
 
         self.nn = nn.Sequential()
@@ -63,15 +74,15 @@ class ConditionalNestedNeuralNetwork(nn.Module):
             sizes[0] += n_conditions
 
             # Account for splitting the output into t and s
-            sizes[-1] *= 2
+            sizes[-1] *= self.n_output_parameters
 
             for i in range(len(sizes) - 2):
-                self.nn.append(nn.Linear(sizes[i], sizes[i + 1]))
-                self.nn.append(activation())
+                self.nn.append(LayerFactory.get_layer(layer, sizes[i], sizes[i + 1], **layer_kwargs or {}))
+                self.nn.append(LayerFactory.get_layer(activation, **activation_kwargs or {}))
                 if dropout > 0.0:
                     self.nn.append(nn.Dropout(dropout))
 
-            self.nn.append(nn.Linear(sizes[-2], sizes[-1]))
+            self.nn.append(LayerFactory.get_layer(layer, sizes[-2], sizes[-1], **layer_kwargs or {}))
 
     @property
     def n_params(self) -> int:
@@ -97,7 +108,18 @@ class ConditionalNestedNeuralNetwork(nn.Module):
 
 
 class ConditionalAffineCouplingLayer(ConditionalInvertibleLayer):
-    def __init__(self, input_size: int, nested_sizes: list[int], n_conditions: int, dropout: float = 0.0, device: str = "cpu", two_way: bool = False) -> None:
+    def __init__(
+            self,
+            input_size: int,
+            nested_sizes: list[int],
+            n_conditions: int,
+            layer: str = "Linear",
+            layer_kwargs: dict[str, Any] | None = None,
+            activation: str = "GELU",
+            activation_kwargs: dict[str, Any] | None = None,
+            dropout: float = 0.0,
+            device: str = "cpu",
+            two_way: bool = False) -> None:
         super(ConditionalAffineCouplingLayer, self).__init__()
 
         self.n_conditions = n_conditions
@@ -109,6 +131,11 @@ class ConditionalAffineCouplingLayer(ConditionalInvertibleLayer):
         self.nn_a = ConditionalNestedNeuralNetwork(
             sizes=[int(np.ceil(input_size / 2))] + nested_sizes + [int(np.floor(input_size / 2))],
             n_conditions=n_conditions,
+            n_output_parameters=2,  # scale and translation
+            layer=layer,
+            layer_kwargs=layer_kwargs,
+            activation=activation,
+            activation_kwargs=activation_kwargs,
             dropout=dropout,
             device=device)
 
@@ -117,10 +144,102 @@ class ConditionalAffineCouplingLayer(ConditionalInvertibleLayer):
             self.nn_b = ConditionalNestedNeuralNetwork(
                 sizes=[int(np.floor(input_size / 2))] + nested_sizes + [int(np.ceil(input_size / 2))],
                 n_conditions=n_conditions,
+                n_output_parameters=2,  # scale and translation
+                layer=layer,
+                layer_kwargs=layer_kwargs,
+                activation=activation,
+                activation_kwargs=activation_kwargs,
                 dropout=dropout,
                 device=device)
 
     def to(self, device: str) -> "ConditionalAffineCouplingLayer":  # type: ignore
+        super().to(device)
+        self.device = device
+        self.log_det_J = self.log_det_J.to(device)
+        self.nn_a.to(device)
+        if self.two_way:
+            self.nn_b.to(device)
+
+        return self
+
+    def forward(self, y: torch.Tensor, x: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
+        # Check if x needs reshaping (i.e. if it is a 1D tensor)
+        if y.dim() == 1:
+            # Reshape x to have a batch dimension
+            y = y.unsqueeze(0)
+        if x.dim() == 1:
+            # Reshape x to have a batch dimension
+            x = x.unsqueeze(0)
+
+        # Split the input into two halves
+        y_a, y_b = y.chunk(2, dim=-1)
+
+        # One way
+        t_a, log_s_a = self.nn_a.forward(y_a, x)
+        z_b = torch.exp(log_s_a) * y_b + t_a
+
+        # Other way
+        if self.two_way:
+            t_b, log_s_b = self.nn_b.forward(z_b, x)  # The other way depends on the transformed z_b
+            z_a = torch.exp(log_s_b) * y_a + t_b
+        else:
+            z_a = y_a
+
+        # Calculate the log determinant of the Jacobian
+        if log_det_J:
+            self.log_det_J = log_s_a.sum(dim=-1)
+
+            if self.two_way:
+                self.log_det_J += log_s_b.sum(dim=-1)
+
+        # Return the output
+        return torch.cat([z_a, z_b], dim=-1)
+
+    def inverse(self, z: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        # Split the input into two halves
+        z_a, z_b = z.chunk(2, dim=-1)
+
+        # One way
+        t_a, log_s_a = self.nn_a.forward(z_a, y)
+        y_b = (z_b - t_a) * torch.exp(- log_s_a)
+
+        if self.two_way:
+            t_b, log_s_b = self.nn_b.forward(y_b, y)  # The other way depends on the transformed y_b
+            y_a = (z_a - t_b) * torch.exp(- log_s_b)
+        else:
+            y_a = z_a
+
+        # Return the output
+        return torch.cat([y_a, y_b], dim=-1)
+
+
+class ConditionalRQSplineCouplingLayer(ConditionalInvertibleLayer):
+    def __init__(self, input_size: int, nested_sizes: list[int], n_conditions: int, dropout: float = 0.0, device: str = "cpu", two_way: bool = False) -> None:
+        super(ConditionalRQSplineCouplingLayer, self).__init__()
+
+        self.n_conditions = n_conditions
+        self.log_det_J: torch.Tensor = torch.zeros(1).to(device)
+        self.device = device
+        self.two_way = two_way
+
+        # Create the nested neural network
+        self.nn_a = ConditionalNestedNeuralNetwork(
+            sizes=[int(np.ceil(input_size / 2))] + nested_sizes + [int(np.floor(input_size / 2))],
+            n_conditions=n_conditions,
+            n_output_parameters=6,  # (az^2 + bz + c) / (dz^2 + ez + g)
+            dropout=dropout,
+            device=device)
+
+        # Create the nested neural network
+        if two_way:
+            self.nn_b = ConditionalNestedNeuralNetwork(
+                sizes=[int(np.floor(input_size / 2))] + nested_sizes + [int(np.ceil(input_size / 2))],
+                n_conditions=n_conditions,
+                n_output_parameters=6,  # (az^2 + bz + c) / (dz^2 + ez + g)
+                dropout=dropout,
+                device=device)
+
+    def to(self, device: str) -> "ConditionalRQSplineCouplingLayer":  # type: ignore
         super().to(device)
         self.device = device
         self.log_det_J = self.log_det_J.to(device)
@@ -246,9 +365,14 @@ class CondRealNVP_v2(ConditionalInvertibleLayer):
             dropout: float = 0.0,
             act_norm: bool = False,
             two_way: bool = False,
+            layer: str = "Linear",
+            layer_kwargs: dict[str, Any] | None = None,
+            activation: str = "GELU",
+            activation_kwargs: dict[str, Any] | None = None,
             device: str = "cpu",
             random_state: int | None = None,
-            parameter_index_mapping: ParameterIndexMapping = None) -> None:
+            parameter_index_mapping: ParameterIndexMapping = None,
+            hybrid: bool = False) -> None:
         super(CondRealNVP_v2, self).__init__()
 
         if n_conditions > 0:
@@ -261,18 +385,42 @@ class CondRealNVP_v2(ConditionalInvertibleLayer):
         self.device = device
         self.dropout = dropout
         self.parameter_index_mapping = parameter_index_mapping
+        self.hybrid = hybrid
         self.log_det_J: torch.Tensor = torch.zeros(1).to(self.device)
+
+        if self.hybrid:
+            self.prediction_head = nn.Linear(self.n_conditions, self.size)
 
         # Create the network
         self.layers = nn.ModuleList()
         for _ in range(self.n_blocks - 1):
             if act_norm:
                 self.layers.append(ActNorm(self.size))
-            self.layers.append(ConditionalAffineCouplingLayer(self.size, self.nested_sizes, self.n_conditions, dropout=self.dropout, two_way=two_way, device=self.device))
+            self.layers.append(ConditionalAffineCouplingLayer(
+                self.size,
+                self.nested_sizes,
+                self.n_conditions,
+                layer=layer,
+                layer_kwargs=layer_kwargs,
+                activation=activation,
+                activation_kwargs=activation_kwargs,
+                dropout=self.dropout,
+                two_way=two_way,
+                device=self.device))
             self.layers.append(OrthonormalTransformation(self.size, random_state=random_state))
 
         # Add the final affine coupling layer
-        self.layers.append(ConditionalAffineCouplingLayer(self.size, self.nested_sizes, self.n_conditions, dropout=self.dropout, two_way=two_way, device=self.device))
+        self.layers.append(ConditionalAffineCouplingLayer(
+            self.size,
+            self.nested_sizes,
+            self.n_conditions,
+            layer=layer,
+            layer_kwargs=layer_kwargs,
+            activation=activation,
+            activation_kwargs=activation_kwargs,
+            dropout=self.dropout,
+            two_way=two_way,
+            device=self.device))
 
     def verify(self) -> None:
         current_dimension = None
@@ -316,7 +464,7 @@ class CondRealNVP_v2(ConditionalInvertibleLayer):
         self.feature_network_stack.to(device)
         return self
 
-    def forward(self, y: torch.Tensor, *conditions: torch.Tensor, log_det_J: bool = False) -> torch.Tensor:
+    def forward(self, y: torch.Tensor, *conditions: torch.Tensor, log_det_J: bool = False, return_features: bool = False) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         if self.n_conditions > 0:
             condition = self.feature_network_stack(*conditions)
 
@@ -334,6 +482,9 @@ class CondRealNVP_v2(ConditionalInvertibleLayer):
 
             if log_det_J:
                 self.log_det_J += layer.log_det_J
+
+        if return_features:
+            return y, condition
 
         return y
 

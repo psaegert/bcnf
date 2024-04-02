@@ -111,7 +111,7 @@ def partconv1d(data: np.ndarray, kernel: np.ndarray, periodic: bool = False) -> 
     return data_convolved
 
 
-def get_dir(*args: str, create: bool = False) -> str:
+def get_dir(*args: str, filename: str | None = None, create: bool = False) -> str:
     """
     Get the path to the data directory.
 
@@ -119,6 +119,8 @@ def get_dir(*args: str, create: bool = False) -> str:
     ----------
     args : str
         The path to the data directory.
+    filename : str, optional
+        The filename to append to the path, by default None.
     create : bool, optional
         Whether to create the directory if it does not exist, by default False.
 
@@ -130,10 +132,15 @@ def get_dir(*args: str, create: bool = False) -> str:
     if any([not isinstance(arg, str) for arg in args]):
         raise TypeError("All arguments must be strings.")
 
-    if create:
-        os.makedirs(os.path.join(os.path.dirname(__file__), '..', '..', *args), exist_ok=True)
+    path = os.path.join(os.path.dirname(__file__), '..', '..', *args, filename or '')
 
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', *args))
+    if create:
+        if filename is not None:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+        else:
+            os.makedirs(path, exist_ok=True)
+
+    return os.path.abspath(path)
 
 
 def sub_root_path(path: str) -> str:

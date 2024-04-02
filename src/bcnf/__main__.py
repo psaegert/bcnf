@@ -58,10 +58,14 @@ def main(argv: str = None) -> None:
                 config={k.lower(): v for k, v in config.to_dict().items()},
                 project_name="bcnf-test",
                 parameter_index_mapping=model.parameter_index_mapping,
+                hybrid_weight=config['global']['hybrid_weight'],
                 verbose=True,
             )
 
-            model = trainer.train(model)
+            try:
+                trainer.train(model)
+            except KeyboardInterrupt:
+                print("Training interrupted by user")
 
             torch.save(model.state_dict(), os.path.join(resolved_output_path, "state_dict.pt"))
 
