@@ -18,6 +18,7 @@ from .feature_network import (
     MultiHeadAttention,
     TransformerBlock,
     Transformer,
+    DualDomainTransformer,
     FullyConnectedFeatureNetwork)
 from .layers import (
     AnyGLU,

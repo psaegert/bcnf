@@ -1,8 +1,7 @@
-# bcnf train -c {{BCNF_ROOT}}/configs/runs/trajectory_LSTM_large.yaml -f
-# bcnf train -c {{BCNF_ROOT}}/configs/runs/trajectory_LSTM_2_large.yaml -f
-# bcnf train -c {{BCNF_ROOT}}/configs/runs/trajectory_SFrExp_LSTM_2_large.yaml -f
-# bcnf train -c {{BCNF_ROOT}}/configs/runs/trajectory_SFrExp_LSTM_SiGLU_2_large.yaml -f
-# bcnf train -c {{BCNF_ROOT}}/configs/runs/trajectory_SFrExp_LSTM_SiGLU_GELU_2_large.yaml -f
-# bcnf train -c {{BCNF_ROOT}}/configs/runs/trajectory_SFrExp_LSTM_2_medium.yaml -f
-bcnf train -c {{BCNF_ROOT}}/configs/runs/trajectory_SFrExp_LSTM_2_medium_short.yaml -f
-bcnf train -c {{BCNF_ROOT}}/configs/runs/trajectory_SFrExp_LSTM_2_large_do4.yaml -f
+# Loop through all files in ./configs/runs/hybrid and run bcnf train -c {{BCNF_ROOT}}/configs/runs/hybrid/<filename>
+
+# Loop through all files in ./configs/runs/hybrid
+for file in ./configs/runs/hybrid/*; do
+    # Run bcnf train -c {{BCNF_ROOT}}/configs/runs/hybrid/<filename>
+    bcnf train -c {{BCNF_ROOT}}/configs/runs/hybrid/$(basename $file)
+done

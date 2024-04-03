@@ -18,10 +18,11 @@ from bcnf.utils import ParameterIndexMapping, inn_nll_loss
 
 
 class Trainer():
-    def __init__(self, config: dict, project_name: str, parameter_index_mapping: ParameterIndexMapping, hybrid_weight: float = 0, verbose: bool = False) -> None:
+    def __init__(self, config: dict, project_name: str, run_name: str, parameter_index_mapping: ParameterIndexMapping, hybrid_weight: float = 0, verbose: bool = False) -> None:
         self.config = config
         self.verbose = verbose
         self.project_name = project_name
+        self.run_name = run_name
         self.parameter_index_mapping = parameter_index_mapping
         self.hybrid_weight = hybrid_weight
 
@@ -70,7 +71,7 @@ class Trainer():
             optimizer=optimizer,
             scheduler_kwargs=self.config['lr_scheduler']['kwargs'])
 
-        with wandb.init(project=self.project_name, config=self.config, entity="bcnf"):  # type: ignore
+        with wandb.init(project=self.project_name, config=self.config, entity="bcnf", name=self.run_name):  # type: ignore
 
             # access all HPs through wandb.config, so logging matches execution!
             self.config = wandb.config  # type: ignore
@@ -164,7 +165,7 @@ class Trainer():
                 y, *conditions = data
                 loss, nll_loss, mse_loss = self._train_batch(y, *conditions, model=model, optimizer=optimizer, loss_function=loss_function)
 
-                if loss > 1e5 or np.isnan(loss):
+                if (loss > 1e5 or np.isnan(loss)) and epoch > 10:
                     raise TrainingDivergedError(f"Loss exploded to {loss} at epoch {epoch + i / len(train_loader)}")
 
                 train_loss += loss

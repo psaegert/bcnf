@@ -5,7 +5,7 @@ import torch.nn as nn
 import importlib
 
 from bcnf.models.cnn import CNN
-from bcnf.models.feature_network import DualDomainLSTM, ConcatenateCondition, FrExpFeatureNetwork, FeatureNetwork, FullyConnectedFeatureNetwork, LSTMFeatureNetwork, Transformer
+from bcnf.models.feature_network import DualDomainTransformer, DualDomainLSTM, ConcatenateCondition, FrExpFeatureNetwork, FeatureNetwork, FullyConnectedFeatureNetwork, LSTMFeatureNetwork, Transformer
 
 from collections.abc import Iterator
 
@@ -48,6 +48,8 @@ class FeatureNetworkFactory():
                 return FrExpFeatureNetwork(**network_kwargs)
             case "DualDomainLSTM":
                 return DualDomainLSTM(**network_kwargs)
+            case "DualDomainTransformer":
+                return DualDomainTransformer(**network_kwargs)
             case None:
                 return nn.Identity()
             case _:

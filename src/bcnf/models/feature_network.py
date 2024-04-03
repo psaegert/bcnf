@@ -261,11 +261,13 @@ class TransformerBlock(nn.Module):
 
 
 class Transformer(FeatureNetwork):
-    def __init__(self, input_size: int, trf_size: int, n_heads: int, ff_size: int, n_blocks: int, output_size: int, dropout: float = 0.5, trf_dropout: float = 0.1) -> None:
+    def __init__(self, input_size: int, trf_size: int, n_heads: int, ff_size: int, n_blocks: int, output_size: int, dropout: float = 0.5, trf_dropout: float = 0.1, add_positional_embeddings: bool = False) -> None:
         super(Transformer, self).__init__()
 
         self.input_size = input_size
         self.output_size = output_size
+        self.add_positional_embeddings = add_positional_embeddings
+        self.trf_size = trf_size
 
         self.features = nn.Linear(input_size, trf_size)
         self.layers = nn.ModuleList([TransformerBlock(trf_size, n_heads, ff_size, trf_dropout) for _ in range(n_blocks)])
@@ -281,6 +283,18 @@ class Transformer(FeatureNetwork):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.features(x)
         x = self.dropout(x)
+
+        if self.add_positional_embeddings:
+            seq_len = x.size(1)
+            positional_embeddings = torch.zeros(seq_len, self.trf_size, device=x.device)
+            for i in range(seq_len):
+                for j in range(self.input_size):
+                    if j % 2 == 0:
+                        positional_embeddings[i, j] = np.sin(i / 10000 ** (2 * j / self.input_size))
+                    else:
+                        positional_embeddings[i, j] = np.cos(i / 10000 ** (2 * j / self.input_size))
+
+            x += positional_embeddings
 
         for layer in self.layers:
             x = layer(x)
@@ -382,3 +396,76 @@ class DualDomainLSTM(FeatureNetwork):
         x_cat = torch.cat([x_lstm_pooled, x_frequencies_lstm_pooled], dim=1)
 
         return self.fc.forward(x_cat)
+
+
+class DualDomainTransformer(FeatureNetwork):
+    def __init__(
+        self,
+        input_size: int,
+        trf_size: int,
+        n_heads: int,
+        ff_size: int,
+        n_blocks: int,
+        fc_sizes: list[int],
+        fc_dropout: float = 0.5,
+        trf_dropout: float = 0.1,
+        dropout: float = 0.5,
+        add_positional_embeddings: bool = False
+    ) -> None:
+        super(DualDomainTransformer, self).__init__()
+
+        self.input_size = input_size
+        self.output_size = fc_sizes[-1]
+        self.add_positional_embeddings = add_positional_embeddings
+
+        # Time domain transformer
+        self.time_transformer = Transformer(
+            input_size=input_size,
+            trf_size=trf_size,
+            n_heads=n_heads,
+            ff_size=ff_size,
+            n_blocks=n_blocks,
+            output_size=trf_size,  # Output size is trf_size for intermediate representation
+            dropout=dropout,
+            trf_dropout=trf_dropout,
+            add_positional_embeddings=add_positional_embeddings
+        )
+
+        # Frequency domain transformer, handling input_size * 2 for real and imaginary components
+        self.frequency_transformer = Transformer(
+            input_size=input_size * 2,
+            trf_size=trf_size,
+            n_heads=n_heads,
+            ff_size=ff_size,
+            n_blocks=n_blocks,
+            output_size=trf_size,  # Output size is trf_size for intermediate representation
+            dropout=dropout,
+            trf_dropout=trf_dropout,
+            add_positional_embeddings=add_positional_embeddings
+        )
+
+        # Fully connected network for final processing
+        fc_input_size = trf_size * 2  # Concatenated outputs from time and frequency transformers
+        self.fc_sizes = [fc_input_size] + fc_sizes
+        self.fc = FullyConnectedFeatureNetwork(sizes=self.fc_sizes, dropout=fc_dropout)
+
+    def to(self, *args: Any, **kwargs: Any) -> 'DualDomainTransformer':
+        self.time_transformer = self.time_transformer.to(*args, **kwargs)
+        self.frequency_transformer = self.frequency_transformer.to(*args, **kwargs)
+        self.fc = self.fc.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Process in time domain
+        x_out = self.time_transformer(x)
+
+        # FFT transformation and processing in frequency domain
+        x_frequencies = torch.fft.rfft(x, dim=1)
+        x_frequencies = torch.cat([x_frequencies.real, x_frequencies.imag], dim=-1)
+        x_frequency_out = self.frequency_transformer(x_frequencies)
+
+        # Concatenate the outputs from both transformers
+        x_combined = torch.cat([x_out, x_frequency_out], dim=1)
+
+        # Final processing through the fully connected network
+        return self.fc(x_combined)
