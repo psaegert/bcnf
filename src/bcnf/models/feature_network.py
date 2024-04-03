@@ -469,3 +469,57 @@ class DualDomainTransformer(FeatureNetwork):
 
         # Final processing through the fully connected network
         return self.fc(x_combined)
+
+
+class DualDomainFC(FeatureNetwork):
+    def __init__(
+        self,
+        input_size: int,
+        sizes: list[int],
+        fc_sizes: list[int],
+        dropout: float = 0.5,
+        add_positional_embeddings: bool = False
+    ) -> None:
+        super(DualDomainFC, self).__init__()
+
+        self.input_size = input_size
+        self.output_size = fc_sizes[-1]
+        self.add_positional_embeddings = add_positional_embeddings
+
+        # Time domain fully connected network
+        self.time_fc = FullyConnectedFeatureNetwork(
+            sizes=[input_size] + sizes,
+            dropout=dropout
+        )
+
+        # Frequency domain fully connected network, handling input_size * 2 for real and imaginary components
+        self.frequency_fc = FullyConnectedFeatureNetwork(
+            sizes=[input_size * 2] + sizes,
+            dropout=dropout
+        )
+
+        # Fully connected network for final processing
+        fc_input_size = input_size * 2  # Concatenated outputs from time and frequency transformers
+        self.fc_sizes = [fc_input_size] + fc_sizes
+        self.fc = FullyConnectedFeatureNetwork(sizes=self.fc_sizes, dropout=dropout)
+
+    def to(self, *args: Any, **kwargs: Any) -> 'DualDomainFC':
+        self.time_fc = self.time_fc.to(*args, **kwargs)
+        self.frequency_fc = self.frequency_fc.to(*args, **kwargs)
+        self.fc = self.fc.to(*args, **kwargs)
+        return super().to(*args, **kwargs)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Process in time domain
+        x_out = self.time_fc(x)
+
+        # FFT transformation and processing in frequency domain
+        x_frequencies = torch.fft.rfft(x, dim=1)
+        x_frequencies = torch.cat([x_frequencies.real, x_frequencies.imag], dim=-1)
+        x_frequency_out = self.frequency_fc(x_frequencies)
+
+        # Concatenate the outputs from both transformers
+        x_combined = torch.cat([x_out, x_frequency_out], dim=1)
+
+        # Final processing through the fully connected network
+        return self.fc(x_combined)
